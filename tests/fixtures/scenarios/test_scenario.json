@@ -1,0 +1,10 @@
+{
+  "loanRequest": {
+    "creditAmt": 100000,
+    "productCdExt": 10410001,
+    "customer": {
+      "firstName": "Иван",
+      "lastName": "Иванов"
+    }
+  }
+}

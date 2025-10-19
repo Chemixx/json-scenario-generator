@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "V072Call1Rq",
+  "type": "object",
+  "required": ["loanRequest"],
+  "properties": {
+    "loanRequest": {
+      "type": "object",
+      "required": ["creditAmt", "productCdExt"],
+      "properties": {
+        "creditAmt": {
+          "type": "integer",
+          "description": "Сумма кредита",
+          "maxIntLength": 10
+        },
+        "productCdExt": {
+          "type": "integer",
+          "description": "Код продукта",
+          "dictionary": "PRODUCT_TYPE"
+        },
+        "newField": {
+          "type": "string",
+          "description": "Новое поле в v072",
+          "maxLength": 100
+        },
+        "customer": {
+          "type": "object",
+          "properties": {
+            "firstName": {
+              "type": "string"
+            },
+            "lastName": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

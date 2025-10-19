@@ -1,0 +1,19 @@
+{
+  "PRODUCT_TYPE": [
+    {
+      "code": 10410001,
+      "name": "PACL",
+      "description": "Потребительский кредит наличными"
+    },
+    {
+      "code": 10410002,
+      "name": "TOPUP",
+      "description": "Пополнение кредита"
+    },
+    {
+      "code": 10410003,
+      "name": "REFI",
+      "description": "Рефинансирование"
+    }
+  ]
+}
