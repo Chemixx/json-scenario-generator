@@ -4,9 +4,11 @@
 """
 from pathlib import Path
 from typing import Dict, Any, Set
+
 from src.models.schema_models import FieldMetadata, FieldChange, SchemaDiff
 from src.utils.json_utils import load_json
 from src.utils.logger import get_logger
+
 
 logger = get_logger(__name__)
 
@@ -28,6 +30,7 @@ class SchemaParser:
             parser = SchemaParser()
             schema = parser.load_schema(Path("V072Call1Rq.json"))
             fields = parser.parse_schema(schema)
+
             for path, field in fields.items():
                 print(f"{path}: {field.field_type}")
     """
@@ -364,6 +367,7 @@ class SchemaParser:
             old_field.field_type != new_field.field_type or
             old_field.is_required != new_field.is_required or
             old_field.is_conditional != new_field.is_conditional or
+            old_field.condition != new_field.condition or
             old_field.dictionary != new_field.dictionary or
             old_field.constraints != new_field.constraints or
             old_field.format != new_field.format or
@@ -393,8 +397,15 @@ class SchemaParser:
         if old_field.is_required != new_field.is_required:
             changes["required"] = f"{old_field.is_required} → {new_field.is_required}"
 
+        # ✅ ПРОВЕРКА is_conditional
         if old_field.is_conditional != new_field.is_conditional:
             changes["conditional"] = f"{old_field.is_conditional} → {new_field.is_conditional}"
+
+        # ✅ ПРОВЕРКА condition (самого условия)
+        if old_field.condition != new_field.condition:
+            old_cond = old_field.condition or "None"
+            new_cond = new_field.condition or "None"
+            changes["condition"] = f"{old_cond} → {new_cond}"
 
         if old_field.dictionary != new_field.dictionary:
             changes["dictionary"] = f"{old_field.dictionary} → {new_field.dictionary}"
