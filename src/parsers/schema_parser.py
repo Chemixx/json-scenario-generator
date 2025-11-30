@@ -1,384 +1,242 @@
 """
-Парсер JSON Schema
-Извлекает метаданные полей из JSON Schema для анализа изменений между версиями
+Парсер JSON Schema для извлечения метаданных полей
 """
+from typing import Dict, List, Any, Optional
 from pathlib import Path
-from typing import Dict, Any, Set
+import re
 
-from src.models.schema_models import FieldMetadata, FieldChange, SchemaDiff
-from src.utils.json_utils import load_json
-from src.utils.logger import get_logger
-
+from ..models import FieldMetadata, SchemaDiff, FieldChange
+from ..utils import load_json, get_logger
 
 logger = get_logger(__name__)
 
 
 class SchemaParser:
-    """
-    Парсер JSON Schema
-
-    Извлекает метаданные полей из JSON Schema:
-    - Типы полей
-    - Обязательность (required)
-    - Условная обязательность (condition)
-    - Справочники (dictionary)
-    - Ограничения (constraints)
-
-    Example:
-        .. code-block:: python
-
-            parser = SchemaParser()
-            schema = parser.load_schema(Path("V072Call1Rq.json"))
-            fields = parser.parse_schema(schema)
-
-            for path, field in fields.items():
-                print(f"{path}: {field.field_type}")
-    """
+    """Парсер JSON Schema"""
 
     def __init__(self):
-        """Инициализация парсера"""
-        self.logger = get_logger(self.__class__.__name__)
+        self.fields: Dict[str, FieldMetadata] = {}
 
-    def load_schema(self, file_path: Path) -> Dict[str, Any]:
+    def load_schema(self, schema_path: Path) -> Dict[str, FieldMetadata]:
         """
-        Загрузить JSON Schema из файла
+        Загрузить и распарсить JSON Schema
 
         Args:
-            file_path: Путь к JSON Schema файлу
+            schema_path: Путь к JSON Schema файлу
 
         Returns:
-            Словарь с JSON Schema
-
-        Raises:
-            FileNotFoundError: Если файл не найден
+            Словарь метаданных полей {путь: метаданные}
         """
-        self.logger.info(f"📂 Загрузка схемы из {file_path.name}")
-        return load_json(file_path)
+        logger.info(f"📂 Загрузка схемы из {schema_path.name}")
+        schema = load_json(schema_path)
+        self.fields = {}
+        self.parse_schema(schema)
+        return self.fields
 
     def parse_schema(
         self,
         schema: Dict[str, Any],
-        parent_path: str = ""
-    ) -> Dict[str, FieldMetadata]:
+        path: str = "",
+        parent_required: List[str] = None
+    ) -> None:
         """
-        Парсинг JSON Schema и извлечение метаданных полей
+        Рекурсивно парсить JSON Schema
 
         Args:
-            schema: JSON Schema для парсинга
-            parent_path: Путь к родительскому объекту (для рекурсии)
-
-        Returns:
-            Словарь {путь_к_полю: FieldMetadata}
-
-        Example:
-            .. code-block:: python
-
-                parser = SchemaParser()
-                schema_data = {"type": "object", "properties": {...}}
-                fields = parser.parse_schema(schema_data)
+            schema: JSON Schema объект
+            path: Текущий путь к полю
+            parent_required: Список обязательных полей родителя
         """
-        self.logger.info("🔍 Начало парсинга JSON Schema")
+        if not schema or not isinstance(schema, dict):
+            return
 
-        fields: Dict[str, FieldMetadata] = {}
-        required_fields = self._get_required_fields(schema)
+        logger.info(f"🔍 Начало парсинга JSON Schema")
 
-        # Парсим свойства
+        parent_required = parent_required or []
+        schema_type = schema.get("type")
         properties = schema.get("properties", {})
-        for field_name, field_schema in properties.items():
-            field_path = self._build_path(parent_path, field_name)
+        required_fields = schema.get("required", [])
 
-            # Создаем метаданные поля
-            field_metadata = self._parse_field(
-                field_name=field_name,
-                field_path=field_path,
-                field_schema=field_schema,
-                is_required=field_name in required_fields
-            )
-
-            fields[field_path] = field_metadata
-
-            # Рекурсивно парсим вложенные объекты
-            if field_metadata.field_type == "object" and "properties" in field_schema:
-                nested_fields = self.parse_schema(field_schema, parent_path=field_path)
-                fields.update(nested_fields)
-
-            # Парсим элементы массивов
-            if field_metadata.field_type == "array" and "items" in field_schema:
-                items_metadata = self._parse_array_items(
-                    field_path=field_path,
-                    items_schema=field_schema["items"]
+        # Парсинг свойств объекта
+        if schema_type == "object" and properties:
+            for field_name, field_schema in properties.items():
+                field_path = f"{path}/{field_name}" if path else field_name
+                self._parse_field(
+                    field_path,
+                    field_schema,
+                    field_name in required_fields
                 )
-                field_metadata.items = items_metadata
 
-                # Если элементы массива - объекты, парсим их свойства
-                if items_metadata.field_type == "object" and "properties" in field_schema["items"]:
-                    array_item_path = f"{field_path}[]"
-                    nested_fields = self.parse_schema(
-                        field_schema["items"],
-                        parent_path=array_item_path
-                    )
-                    fields.update(nested_fields)
+        # Парсинг элементов массива
+        elif schema_type == "array":
+            items_schema = schema.get("items", {})
+            if items_schema:
+                array_path = f"{path}[]" if path else "[]"
+                self.parse_schema(items_schema, array_path, required_fields)
 
-        self.logger.info(f"✅ Парсинг завершен: найдено {len(fields)} полей")
-        return fields
+        logger.info(f"✅ Парсинг завершен: найдено {len(self.fields)} полей")
 
     def _parse_field(
-        self,
-        field_name: str,
-        field_path: str,
-        field_schema: Dict[str, Any],
-        is_required: bool
-    ) -> FieldMetadata:
-        """
-        Парсинг одного поля
-
-        Args:
-            field_name: Имя поля
-            field_path: Полный путь к полю
-            field_schema: Схема поля
-            is_required: Обязательно ли поле
-
-        Returns:
-            FieldMetadata с метаданными поля
-        """
+            self,
+            path: str,
+            field_schema: Dict[str, Any],
+            is_required: bool
+    ) -> None:
+        """Распарсить отдельное поле"""
         field_type = field_schema.get("type", "unknown")
-        description = field_schema.get("description", "")
 
-        # Извлекаем справочник (если есть)
-        dictionary = field_schema.get("dictionary")
+        # Извлечение имени поля из пути
+        field_name = path.split("/")[-1].replace("[]", "")
 
-        # Извлекаем условие (если есть)
-        is_conditional = "condition" in field_schema
-        condition = field_schema.get("condition")
-
-        # Извлекаем ограничения
+        # Извлечение ограничений
         constraints = self._extract_constraints(field_schema)
 
-        # Извлекаем формат
-        field_format = field_schema.get("format")
+        # Извлечение справочника
+        dictionary = field_schema.get("dictionary")
 
-        # Извлекаем значение по умолчанию
-        default_value = field_schema.get("default")
+        # Извлечение условия
+        condition = field_schema.get("condition")
+        is_conditional = condition is not None
 
-        return FieldMetadata(
-            path=field_path,
-            name=field_name,
+        # Создание метаданных поля
+        metadata = FieldMetadata(
+            name=field_name,  # ← ДОБАВЛЕНО!
+            path=path,
             field_type=field_type,
             is_required=is_required,
             is_conditional=is_conditional,
-            condition=condition,
+            constraints=constraints,
             dictionary=dictionary,
-            constraints=constraints,
-            description=description,
-            format=field_format,
-            default=default_value
+            condition=condition,
+            format=field_schema.get("format"),
+            default=field_schema.get("default"),
+            description=field_schema.get("description")
         )
 
-    def _parse_array_items(
-        self,
-        field_path: str,
-        items_schema: Dict[str, Any]
-    ) -> FieldMetadata:
-        """
-        Парсинг элементов массива
+        self.fields[path] = metadata
 
-        Args:
-            field_path: Путь к массиву
-            items_schema: Схема элементов массива
+        # Рекурсивный парсинг вложенных объектов
+        if field_type == "object":
+            properties = field_schema.get("properties", {})
+            required_fields = field_schema.get("required", [])
+            for nested_name, nested_schema in properties.items():
+                nested_path = f"{path}/{nested_name}"
+                self._parse_field(
+                    nested_path,
+                    nested_schema,
+                    nested_name in required_fields
+                )
 
-        Returns:
-            FieldMetadata для элементов
-        """
-        item_type = items_schema.get("type", "unknown")
-        description = items_schema.get("description", "")
-        constraints = self._extract_constraints(items_schema)
-        dictionary = items_schema.get("dictionary")
+        # Рекурсивный парсинг массивов
+        elif field_type == "array":
+            items_schema = field_schema.get("items", {})
+            if items_schema and isinstance(items_schema, dict):
+                items_path = f"{path}[]"
+                items_type = items_schema.get("type", "unknown")
 
-        return FieldMetadata(
-            path=f"{field_path}[]",
-            name="items",
-            field_type=item_type,
-            constraints=constraints,
-            description=description,
-            dictionary=dictionary
-        )
+                if items_type == "object":
+                    properties = items_schema.get("properties", {})
+                    required_fields = items_schema.get("required", [])
+                    for item_name, item_schema in properties.items():
+                        item_path = f"{items_path}/{item_name}"
+                        self._parse_field(
+                            item_path,
+                            item_schema,
+                            item_name in required_fields
+                        )
 
-    @staticmethod
-    def _extract_constraints(field_schema: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Извлечение ограничений из схемы поля
+    def _extract_constraints(self, field_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """Извлечь ограничения поля"""
+        constraint_keys = [
+            "minLength", "maxLength", "minimum", "maximum",
+            "minItems", "maxItems", "maxIntLength", "maxFracLength",
+            "pattern", "enum"
+        ]
 
-        Args:
-            field_schema: Схема поля
-
-        Returns:
-            Словарь с ограничениями
-        """
         constraints = {}
+        for key in constraint_keys:
+            if key in field_schema:
+                constraints[key] = field_schema[key]
 
-        # Строковые ограничения
-        if "minLength" in field_schema:
-            constraints["minLength"] = field_schema["minLength"]
-        if "maxLength" in field_schema:
-            constraints["maxLength"] = field_schema["maxLength"]
-        if "pattern" in field_schema:
-            constraints["pattern"] = field_schema["pattern"]
-
-        # Числовые ограничения
-        if "minimum" in field_schema:
-            constraints["minimum"] = field_schema["minimum"]
-        if "maximum" in field_schema:
-            constraints["maximum"] = field_schema["maximum"]
-        if "maxIntLength" in field_schema:
-            constraints["maxIntLength"] = field_schema["maxIntLength"]
-
-        # Ограничения массива
-        if "minItems" in field_schema:
-            constraints["minItems"] = field_schema["minItems"]
-        if "maxItems" in field_schema:
-            constraints["maxItems"] = field_schema["maxItems"]
-
-        # Enum (допустимые значения)
-        if "enum" in field_schema:
-            constraints["enum"] = field_schema["enum"]
+        # Дополнительные constraints из массива
+        if "constraints" in field_schema:
+            constraints["custom"] = field_schema["constraints"]
 
         return constraints
 
     @staticmethod
-    def _get_required_fields(schema: Dict[str, Any]) -> Set[str]:
-        """
-        Получить список обязательных полей
-
-        Args:
-            schema: JSON Schema
-
-        Returns:
-            Множество имен обязательных полей
-        """
-        return set(schema.get("required", []))
-
-    @staticmethod
-    def _build_path(parent_path: str, field_name: str) -> str:
-        """
-        Построить путь к полю
-
-        Args:
-            parent_path: Путь к родителю
-            field_name: Имя поля
-
-        Returns:
-            Полный путь (например, "loanRequest/creditAmt")
-        """
-        if parent_path:
-            return f"{parent_path}/{field_name}"
-        return field_name
-
     def compare_schemas(
-        self,
-        old_fields: Dict[str, FieldMetadata],
-        new_fields: Dict[str, FieldMetadata]
+        old_schema: Dict[str, FieldMetadata],
+        new_schema: Dict[str, FieldMetadata]
     ) -> SchemaDiff:
         """
-        Сравнение двух схем
+        Сравнить две схемы и найти изменения
 
         Args:
-            old_fields: Поля старой схемы
-            new_fields: Поля новой схемы
+            old_schema: Старая схема
+            new_schema: Новая схема
 
         Returns:
-            SchemaDiff с детальными изменениями
+            Объект с различиями
         """
-        self.logger.info("🔄 Сравнение схем")
+        logger.info(f"🔄 Сравнение схем")
 
-        old_paths = set(old_fields.keys())
-        new_paths = set(new_fields.keys())
+        all_paths = set(old_schema.keys()) | set(new_schema.keys())
 
-        added_paths = new_paths - old_paths
-        removed_paths = old_paths - new_paths
-        common_paths = old_paths & new_paths
+        added_fields = []
+        removed_fields = []
+        modified_fields = []
 
-        # Извлекаем версии (если доступны)
-        old_version = "unknown"
-        new_version = "unknown"
+        for path in all_paths:
+            old_field = old_schema.get(path)
+            new_field = new_schema.get(path)
 
-        diff = SchemaDiff(
-            old_version=old_version,
-            new_version=new_version,
-            call="unknown"
-        )
-
-        # Добавленные поля
-        for path in added_paths:
-            change = FieldChange(
-                path=path,
-                change_type="added",
-                new_meta=new_fields[path]
-            )
-            diff.added_fields.append(change)
-
-        # Удаленные поля
-        for path in removed_paths:
-            change = FieldChange(
-                path=path,
-                change_type="removed",
-                old_meta=old_fields[path]
-            )
-            diff.removed_fields.append(change)
-
-        # Измененные поля
-        for path in common_paths:
-            old_field = old_fields[path]
-            new_field = new_fields[path]
-
-            if self._fields_differ(old_field, new_field):
-                changes = self._detect_field_changes(old_field, new_field)
-                change = FieldChange(
+            if old_field is None:
+                # Поле добавлено
+                added_fields.append(FieldChange(
+                    path=path,
+                    change_type="added",
+                    old_meta=None,
+                    new_meta=new_field
+                ))
+            elif new_field is None:
+                # Поле удалено
+                removed_fields.append(FieldChange(
+                    path=path,
+                    change_type="removed",
+                    old_meta=old_field,
+                    new_meta=None
+                ))
+            elif old_field != new_field:
+                # Поле изменено
+                changes = SchemaParser._detect_field_changes(old_field, new_field)
+                modified_fields.append(FieldChange(
                     path=path,
                     change_type="modified",
                     old_meta=old_field,
                     new_meta=new_field,
                     changes=changes
-                )
-                diff.modified_fields.append(change)
+                ))
 
-        self.logger.info(
-            f"📊 Изменения: +{len(diff.added_fields)} полей, "
-            f"-{len(diff.removed_fields)} полей, ~{len(diff.modified_fields)} изменений"
+        logger.info(
+            f"📊 Изменения: +{len(added_fields)} полей, "
+            f"-{len(removed_fields)} полей, ~{len(modified_fields)} изменений"
         )
 
-        return diff
-
-    @staticmethod
-    def _fields_differ(
-        old_field: FieldMetadata,
-        new_field: FieldMetadata
-    ) -> bool:
-        """
-        Проверка, отличаются ли два поля
-
-        Args:
-            old_field: Старое поле
-            new_field: Новое поле
-
-        Returns:
-            True, если поля отличаются
-        """
-        return (
-            old_field.field_type != new_field.field_type or
-            old_field.is_required != new_field.is_required or
-            old_field.is_conditional != new_field.is_conditional or
-            old_field.condition != new_field.condition or
-            old_field.dictionary != new_field.dictionary or
-            old_field.constraints != new_field.constraints or
-            old_field.format != new_field.format or
-            old_field.default != new_field.default
+        return SchemaDiff(
+            old_version="",
+            new_version="",
+            call="",
+            added_fields=added_fields,
+            removed_fields=removed_fields,
+            modified_fields=modified_fields
         )
 
     @staticmethod
     def _detect_field_changes(
         old_field: FieldMetadata,
         new_field: FieldMetadata
-    ) -> Dict[str, str]:
+    ) -> Dict[str, Any]:
         """
         Определить конкретные изменения в поле
 
@@ -391,32 +249,175 @@ class SchemaParser:
         """
         changes = {}
 
+        # Изменение типа
         if old_field.field_type != new_field.field_type:
-            changes["type"] = f"{old_field.field_type} → {new_field.field_type}"
+            changes["type"] = f"Тип поля изменился: {old_field.field_type} → {new_field.field_type}"
 
+        # Изменение обязательности
         if old_field.is_required != new_field.is_required:
-            changes["required"] = f"{old_field.is_required} → {new_field.is_required}"
+            if new_field.is_required:
+                changes["required"] = "Поле стало обязательным"
+            else:
+                changes["required"] = "Поле стало опциональным"
 
-        # ✅ ПРОВЕРКА is_conditional
+        # Изменение условной обязательности
         if old_field.is_conditional != new_field.is_conditional:
-            changes["conditional"] = f"{old_field.is_conditional} → {new_field.is_conditional}"
+            if new_field.is_conditional:
+                changes["conditional"] = "Поле стало условно обязательным (УО)"
+            else:
+                changes["conditional"] = "Поле перестало быть условно обязательным"
 
-        # ✅ ПРОВЕРКА condition (самого условия)
+        # Изменение самого условия
         if old_field.condition != new_field.condition:
-            old_cond = old_field.condition or "None"
-            new_cond = new_field.condition or "None"
-            changes["condition"] = f"{old_cond} → {new_cond}"
+            old_cond = old_field.condition or {}
+            new_cond = new_field.condition or {}
 
+            old_expr = old_cond.get("expression", "") if isinstance(old_cond, dict) else str(old_cond)
+            new_expr = new_cond.get("expression", "") if isinstance(new_cond, dict) else str(new_cond)
+
+            changes["condition"] = SchemaParser._describe_condition_change(old_expr, new_expr)
+
+        # Изменение справочника
         if old_field.dictionary != new_field.dictionary:
-            changes["dictionary"] = f"{old_field.dictionary} → {new_field.dictionary}"
+            changes["dictionary"] = f"Справочник изменился: '{old_field.dictionary}' → '{new_field.dictionary}'"
 
+        # Изменение ограничений
         if old_field.constraints != new_field.constraints:
-            changes["constraints"] = "изменены"
+            constraint_desc = SchemaParser._analyze_constraint_changes(
+                old_field.constraints,
+                new_field.constraints
+            )
+            if constraint_desc:
+                changes["constraints"] = constraint_desc
 
+        # Изменение формата
         if old_field.format != new_field.format:
-            changes["format"] = f"{old_field.format} → {new_field.format}"
+            changes["format"] = f"Формат изменился: {old_field.format} → {new_field.format}"
 
+        # Изменение значения по умолчанию
         if old_field.default != new_field.default:
-            changes["default"] = f"{old_field.default} → {new_field.default}"
+            changes["default"] = f"Значение по умолчанию изменилось: {old_field.default} → {new_field.default}"
 
         return changes
+
+    @staticmethod
+    def _describe_condition_change(old_expr: str, new_expr: str) -> str:
+        """Описать изменение условия"""
+        # Если условие появилось
+        if not old_expr and new_expr:
+            # Показываем первые 100 символов нового условия
+            preview = new_expr[:100].replace('\n', ' ').strip()
+            if len(new_expr) > 100:
+                preview += "..."
+            return f"Добавлено условие: {preview}"
+
+        # Если условие удалено
+        if old_expr and not new_expr:
+            preview = old_expr[:100].replace('\n', ' ').strip()
+            if len(old_expr) > 100:
+                preview += "..."
+            return f"Условие удалено: {preview}"
+
+        # Если оба условия существуют
+        # Пытаемся найти только изменения в списках значений in(...)
+        import re
+
+        # Ищем все конструкции in(..., значения, ...)
+        old_in_blocks = re.findall(r'in\([^,]+,\s*([0-9,\s]+)\)', old_expr)
+        new_in_blocks = re.findall(r'in\([^,]+,\s*([0-9,\s]+)\)', new_expr)
+
+        if old_in_blocks and new_in_blocks:
+            # Извлекаем числа из первого найденного блока
+            old_values = set()
+            new_values = set()
+
+            for block in old_in_blocks:
+                old_values.update(re.findall(r'\b\d+\b', block))
+
+            for block in new_in_blocks:
+                new_values.update(re.findall(r'\b\d+\b', block))
+
+            added_values = new_values - old_values
+            removed_values = old_values - new_values
+
+            # Если есть только добавления/удаления значений
+            if added_values and not removed_values:
+                if len(added_values) <= 10:
+                    return f"Добавлены значения: {', '.join(sorted(added_values))}"
+                else:
+                    return f"Добавлено {len(added_values)} значений в условие"
+
+            if removed_values and not added_values:
+                if len(removed_values) <= 10:
+                    return f"Удалены значения: {', '.join(sorted(removed_values))}"
+                else:
+                    return f"Удалено {len(removed_values)} значений из условия"
+
+            if added_values and removed_values:
+                parts = []
+                if len(added_values) <= 5:
+                    parts.append(f"добавлены: {', '.join(sorted(list(added_values)[:5]))}")
+                else:
+                    parts.append(f"добавлено: {len(added_values)}")
+
+                if len(removed_values) <= 5:
+                    parts.append(f"удалены: {', '.join(sorted(list(removed_values)[:5]))}")
+                else:
+                    parts.append(f"удалено: {len(removed_values)}")
+
+                return "; ".join(parts).capitalize()
+
+        # Если не смогли определить точные изменения
+        # Показываем краткое сравнение
+        old_preview = old_expr[:80].replace('\n', ' ').strip()
+        new_preview = new_expr[:80].replace('\n', ' ').strip()
+
+        if old_preview != new_preview:
+            return f"Условие изменилось (было: {old_preview}{'...' if len(old_expr) > 80 else ''})"
+
+        return "Условие изменилось"
+
+    @staticmethod
+    def _analyze_constraint_changes(
+        old_constraints: Dict[str, Any],
+        new_constraints: Dict[str, Any]
+    ) -> str:
+        """Детальный анализ изменений ограничений"""
+        constraint_names = {
+            "minLength": "Минимальная длина",
+            "maxLength": "Максимальная длина",
+            "minimum": "Минимальное значение",
+            "maximum": "Максимальное значение",
+            "maxIntLength": "Максимальная длина целой части",
+            "minItems": "Минимальное количество элементов",
+            "maxItems": "Максимальное количество элементов",
+            "pattern": "Регулярное выражение"
+        }
+
+        all_keys = set(old_constraints.keys()) | set(new_constraints.keys())
+        changes = []
+
+        for key in all_keys:
+            if key == "custom":
+                continue
+
+            old_val = old_constraints.get(key)
+            new_val = new_constraints.get(key)
+
+            if old_val != new_val:
+                name = constraint_names.get(key, key)
+
+                if old_val is None:
+                    changes.append(f"{name} добавлено: {new_val}")
+                elif new_val is None:
+                    changes.append(f"{name} удалено (было: {old_val})")
+                elif isinstance(old_val, (int, float)) and isinstance(new_val, (int, float)):
+                    if key in ["minLength", "minimum", "minItems"]:
+                        direction = "ужесточено" if new_val > old_val else "смягчено"
+                    else:  # maxLength, maximum, maxItems
+                        direction = "ужесточено" if new_val < old_val else "смягчено"
+                    changes.append(f"{name} {direction}: {old_val} → {new_val}")
+                else:
+                    changes.append(f"{name} изменено: {old_val} → {new_val}")
+
+        return "; ".join(changes) if changes else ""

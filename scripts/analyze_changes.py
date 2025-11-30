@@ -103,7 +103,7 @@ def print_text_report(result, verbose=False):
     print(f"\n📁 Старая версия: {result.old_schema.name}")
     print(f"📁 Новая версия: {result.new_schema.name}")
 
-    # Получаем статистику по классификациям
+    # Получаем статистику
     additions = result.get_changes_by_classification(ChangeClassification.ADDITION)
     removals = result.get_changes_by_classification(ChangeClassification.REMOVAL)
 
@@ -122,9 +122,9 @@ def print_text_report(result, verbose=False):
         print(f"\n🚨 КРИТИЧЕСКИЕ ИЗМЕНЕНИЯ ({len(result.critical_changes)}):")
         for i, change in enumerate(result.critical_changes, 1):
             print(f"\n  {i}. 📍 {change.field_change.path}")
-            print(f"     Тип: {change.field_change.change_type}")
-            print(f"     Классификация: {change.classification.value}")
+            print(f"     Тип изменения: {change.field_change.change_type}")
             print(f"     Причина: {change.reason}")
+
             if verbose and change.recommendations:
                 print(f"     Рекомендации:")
                 for rec in change.recommendations:
@@ -139,8 +139,9 @@ def print_text_report(result, verbose=False):
         print(f"\n⚠️  BREAKING CHANGES ({len(breaking_non_critical)}):")
         for i, change in enumerate(breaking_non_critical, 1):
             print(f"\n  {i}. 📍 {change.field_change.path}")
-            print(f"     Тип: {change.field_change.change_type}")
+            print(f"     Тип изменения: {change.field_change.change_type}")
             print(f"     Причина: {change.reason}")
+
             if verbose and change.recommendations:
                 print(f"     Рекомендации:")
                 for rec in change.recommendations:
@@ -170,11 +171,10 @@ def print_text_report(result, verbose=False):
                 print(f"  {i}. {impact_icon} {change.field_change.path} [{status}]")
                 if verbose:
                     print(f"     Тип: {field.field_type}")
-                    print(f"     Причина: {change.reason}")
+                    if change.reason:
+                        print(f"     Причина: {change.reason}")
                     if field.dictionary:
                         print(f"     Справочник: {field.dictionary}")
-                    if change.recommendations:
-                        print(f"     Рекомендация: {change.recommendations[0]}")
 
     # Удаленные поля
     if removals:
@@ -200,9 +200,8 @@ def print_text_report(result, verbose=False):
                 print(f"  {i}. {impact_icon} {change.field_change.path} [{status}]")
                 if verbose:
                     print(f"     Тип: {field.field_type}")
-                    print(f"     Причина: {change.reason}")
-                    if change.recommendations:
-                        print(f"     Рекомендация: {change.recommendations[0]}")
+                    if change.reason:
+                        print(f"     Причина: {change.reason}")
 
     # Non-breaking changes (только модификации)
     non_breaking_modifications = [
@@ -214,8 +213,11 @@ def print_text_report(result, verbose=False):
         for i, change in enumerate(non_breaking_modifications, 1):
             print(f"  {i}. 📍 {change.field_change.path}")
             print(f"     {change.reason}")
-            if verbose and change.field_change.changes:
-                print(f"     Детали: {change.field_change.changes}")
+
+            if verbose and change.recommendations:
+                print(f"     Рекомендации:")
+                for rec in change.recommendations:
+                    print(f"       ✓ {rec}")
 
     print("\n" + "=" * 80)
 
@@ -258,9 +260,10 @@ def print_markdown_report(result):
             print(f"### {i}. `{change.field_change.path}`\n")
             print(f"- **Тип:** {change.field_change.change_type}")
             print(f"- **Причина:** {change.reason}")
-            print(f"- **Рекомендации:**")
-            for rec in change.recommendations:
-                print(f"  - {rec}")
+            if change.recommendations:
+                print(f"- **Рекомендации:**")
+                for rec in change.recommendations:
+                    print(f"  - {rec}")
             print()
 
     breaking_non_critical = [

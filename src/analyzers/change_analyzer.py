@@ -1,55 +1,45 @@
 """
 Анализатор изменений между версиями JSON Schema
-Классифицирует изменения и определяет их влияние на сценарии
 """
-from enum import Enum
+from typing import List, Dict, Any
 from pathlib import Path
-from typing import Dict, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 
-from src.parsers.schema_parser import SchemaParser
-from src.models.schema_models import SchemaDiff, FieldChange
-from src.utils.logger import get_logger
+from ..models import SchemaDiff, FieldChange, FieldMetadata
+from ..parsers import SchemaParser
+from ..utils import get_logger
 
-
-class ChangeClassification(str, Enum):
-    """Классификация типов изменений"""
-    BREAKING = "breaking"  # Несовместимое изменение
-    NON_BREAKING = "non_breaking"  # Совместимое изменение
-    ADDITION = "addition"  # Добавление нового поля
-    REMOVAL = "removal"  # Удаление поля
-    DEPRECATION = "deprecation"  # Устаревшее поле
+logger = get_logger(__name__)
 
 
-class ChangeImpact(str, Enum):
+class ChangeClassification(Enum):
+    """Классификация изменений"""
+    BREAKING = "breaking"
+    NON_BREAKING = "non-breaking"
+    ADDITION = "addition"
+    REMOVAL = "removal"
+
+
+class ChangeImpact(Enum):
     """Уровень влияния изменения"""
-    CRITICAL = "critical"  # Критическое - требует немедленных действий
-    HIGH = "high"  # Высокое - требует обновления сценариев
-    MEDIUM = "medium"  # Среднее - желательно обновить
-    LOW = "low"  # Низкое - можно игнорировать
-    NONE = "none"  # Нет влияния
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
 
 
 @dataclass
 class AnalyzedChange:
-    """
-    Проанализированное изменение с классификацией
-
-    Attributes:
-        field_change: Изменение поля из SchemaDiff
-        classification: Тип изменения
-        impact: Уровень влияния
-        reason: Причина классификации
-        recommendations: Рекомендации по исправлению
-    """
+    """Проанализированное изменение"""
     field_change: FieldChange
     classification: ChangeClassification
     impact: ChangeImpact
     reason: str
-    recommendations: List[str]
+    recommendations: List[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict:
-        """Преобразовать в словарь"""
+    def to_dict(self) -> Dict[str, Any]:
+        """Конвертировать в словарь"""
         return {
             "path": self.field_change.path,
             "change_type": self.field_change.change_type,
@@ -57,204 +47,184 @@ class AnalyzedChange:
             "impact": self.impact.value,
             "reason": self.reason,
             "recommendations": self.recommendations,
+            "old_meta": self.field_change.old_meta.to_dict() if self.field_change.old_meta else None,
+            "new_meta": self.field_change.new_meta.to_dict() if self.field_change.new_meta else None,
             "changes": self.field_change.changes
         }
 
 
+@dataclass
+class AnalysisResult:
+    """Результат анализа изменений"""
+    old_schema: Path
+    new_schema: Path
+    analyzed_changes: List[AnalyzedChange]
+
+    @property
+    def breaking_changes(self) -> List[AnalyzedChange]:
+        """Получить breaking changes"""
+        return [c for c in self.analyzed_changes if c.classification == ChangeClassification.BREAKING]
+
+    @property
+    def non_breaking_changes(self) -> List[AnalyzedChange]:
+        """Получить non-breaking changes"""
+        return [c for c in self.analyzed_changes if c.classification == ChangeClassification.NON_BREAKING]
+
+    @property
+    def critical_changes(self) -> List[AnalyzedChange]:
+        """Получить критические изменения"""
+        return [c for c in self.analyzed_changes if c.impact == ChangeImpact.CRITICAL]
+
+    @property
+    def high_impact_changes(self) -> List[AnalyzedChange]:
+        """Получить изменения с высоким влиянием"""
+        return [c for c in self.analyzed_changes if c.impact == ChangeImpact.HIGH]
+
+    def get_changes_by_classification(self, classification: ChangeClassification) -> List[AnalyzedChange]:
+        """Получить изменения по классификации"""
+        return [c for c in self.analyzed_changes if c.classification == classification]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Конвертировать в словарь"""
+        return {
+            "old_schema": str(self.old_schema),
+            "new_schema": str(self.new_schema),
+            "total_changes": len(self.analyzed_changes),
+            "breaking_changes": len(self.breaking_changes),
+            "non_breaking_changes": len(self.non_breaking_changes),
+            "critical_changes": len(self.critical_changes),
+            "high_impact_changes": len(self.high_impact_changes),
+            "changes": [c.to_dict() for c in self.analyzed_changes]
+        }
+
+
 class ChangeAnalyzer:
-    """
-    Анализатор изменений между версиями JSON Schema
-
-    Определяет тип изменений (breaking/non-breaking) и их влияние на сценарии
-
-    Example:
-        .. code-block:: python
-
-            analyzer = ChangeAnalyzer()
-
-            # Сравнить две версии
-            analysis = analyzer.analyze_changes(
-                old_schema_path=Path("v1.0.json"),
-                new_schema_path=Path("v2.0.json")
-            )
-
-            # Получить критические изменения
-            critical = analysis.get_critical_changes()
-            print(f"Найдено {len(critical)} критических изменений")
-    """
+    """Анализатор изменений между версиями схем"""
 
     def __init__(self):
-        """Инициализация анализатора"""
-        self.logger = get_logger(self.__class__.__name__)
         self.parser = SchemaParser()
 
-    def analyze_changes(
-        self,
-        old_schema_path: Path,
-        new_schema_path: Path
-    ) -> "ChangeAnalysisResult":
+    def analyze_changes(self, old_schema_path: Path, new_schema_path: Path) -> AnalysisResult:
         """
-        Проанализировать изменения между версиями
+        Проанализировать изменения между двумя схемами
 
         Args:
-            old_schema_path: Путь к старой версии схемы
-            new_schema_path: Путь к новой версии схемы
+            old_schema_path: Путь к старой схеме
+            new_schema_path: Путь к новой схеме
 
         Returns:
-            Результат анализа с классификацией изменений
-
-        Example:
-            .. code-block:: python
-
-                result = analyzer.analyze_changes(
-                    Path("schemas/v1.json"),
-                    Path("schemas/v2.json")
-                )
-                print(f"Breaking changes: {len(result.breaking_changes)}")
+            Результат анализа
         """
-        self.logger.info(f"🔍 Анализ изменений между версиями")
+        logger.info(f"🔍 Анализ изменений между версиями")
 
-        # Загружаем и парсим старую схему
+        # Загрузка схем
         old_schema = self.parser.load_schema(old_schema_path)
-        old_fields = self.parser.parse_schema(old_schema)
-
-        # Загружаем и парсим новую схему
         new_schema = self.parser.load_schema(new_schema_path)
-        new_fields = self.parser.parse_schema(new_schema)
 
-        # Сравниваем схемы
-        diff = self.parser.compare_schemas(old_fields, new_fields)
+        # Сравнение схем
+        diff = SchemaParser.compare_schemas(old_schema, new_schema)
 
-        # Анализируем изменения
-        analyzed_changes = self._analyze_diff(diff)
+        # Анализ изменений
+        analyzed_changes = []
 
-        # Создаем результат
-        result = ChangeAnalysisResult(
+        # Анализ добавленных полей
+        for field_change in diff.added_fields:
+            analyzed_changes.append(self._analyze_addition(field_change))
+
+        # Анализ удаленных полей
+        for field_change in diff.removed_fields:
+            analyzed_changes.append(self._analyze_removal(field_change))
+
+        # Анализ измененных полей
+        for field_change in diff.modified_fields:
+            analyzed_changes.append(self._analyze_modification(field_change))
+
+        logger.info(
+            f"✅ Анализ завершен: {len([c for c in analyzed_changes if c.classification == ChangeClassification.BREAKING])} breaking, "
+            f"{len([c for c in analyzed_changes if c.classification == ChangeClassification.NON_BREAKING])} non-breaking"
+        )
+
+        return AnalysisResult(
             old_schema=old_schema_path,
             new_schema=new_schema_path,
-            diff=diff,
             analyzed_changes=analyzed_changes
         )
 
-        self.logger.info(
-            f"✅ Анализ завершен: {len(result.breaking_changes)} breaking, "
-            f"{len(result.non_breaking_changes)} non-breaking"
-        )
-
-        return result
-
-    def _analyze_diff(self, diff: SchemaDiff) -> List[AnalyzedChange]:
-        """
-        Проанализировать различия и классифицировать изменения
-
-        Args:
-            diff: Различия между схемами
-
-        Returns:
-            Список проанализированных изменений
-        """
-        analyzed = []
-
-        # Анализируем добавленные поля
-        for field_change in diff.added_fields:
-            analyzed.append(self._analyze_addition(field_change))
-
-        # Анализируем удаленные поля
-        for field_change in diff.removed_fields:
-            analyzed.append(self._analyze_removal(field_change))
-
-        # Анализируем измененные поля
-        for field_change in diff.modified_fields:
-            analyzed.append(self._analyze_modification(field_change))
-
-        return analyzed
-
     def _analyze_addition(self, field_change: FieldChange) -> AnalyzedChange:
         """Проанализировать добавление поля"""
-        field = field_change.new_meta
+        new_field = field_change.new_meta
 
-        # Обязательное новое поле - breaking change
-        if field and field.is_required:
+        if new_field.is_required:
             return AnalyzedChange(
                 field_change=field_change,
-                classification=ChangeClassification.BREAKING,
+                classification=ChangeClassification.ADDITION,
                 impact=ChangeImpact.CRITICAL,
                 reason="Добавлено новое обязательное поле",
                 recommendations=[
                     f"Добавить поле '{field_change.path}' во все существующие сценарии",
-                    f"Определить значение по умолчанию для поля",
-                    f"Обновить валидацию сценариев"
+                    "Определить корректные значения для нового обязательного поля"
                 ]
             )
-
-        # Условно обязательное новое поле - medium impact
-        if field and field.is_conditional:
+        elif new_field.is_conditional:
             return AnalyzedChange(
                 field_change=field_change,
                 classification=ChangeClassification.ADDITION,
-                impact=ChangeImpact.MEDIUM,
+                impact=ChangeImpact.HIGH,
                 reason="Добавлено новое условно обязательное поле (УО)",
                 recommendations=[
                     f"Проверить условия для поля '{field_change.path}'",
-                    f"Добавить поле в сценарии, где выполняются условия",
-                    "Изучить условие обязательности"
+                    "Добавить поле в сценарии, где выполняются условия"
                 ]
             )
-
-        # Опциональное новое поле - non-breaking
-        return AnalyzedChange(
-            field_change=field_change,
-            classification=ChangeClassification.ADDITION,
-            impact=ChangeImpact.LOW,
-            reason="Добавлено новое опциональное поле",
-            recommendations=[
-                f"Рассмотреть возможность использования поля '{field_change.path}' в сценариях",
-                "Поле можно игнорировать без последствий"
-            ]
-        )
+        else:
+            return AnalyzedChange(
+                field_change=field_change,
+                classification=ChangeClassification.ADDITION,
+                impact=ChangeImpact.LOW,
+                reason="Добавлено новое опциональное поле",
+                recommendations=[
+                    "Изменение не требует обновления существующих сценариев",
+                    f"Можно использовать новое поле '{field_change.path}' в новых сценариях"
+                ]
+            )
 
     def _analyze_removal(self, field_change: FieldChange) -> AnalyzedChange:
         """Проанализировать удаление поля"""
-        field = field_change.old_meta
+        old_field = field_change.old_meta
 
-        # Удаление обязательного поля - critical
-        if field and field.is_required:
+        if old_field.is_required:
             return AnalyzedChange(
                 field_change=field_change,
                 classification=ChangeClassification.REMOVAL,
-                impact=ChangeImpact.CRITICAL,
+                impact=ChangeImpact.HIGH,
                 reason="Удалено обязательное поле",
                 recommendations=[
-                    f"УДАЛИТЬ поле '{field_change.path}' из всех сценариев",
-                    "Найти альтернативное поле, если требуется",
-                    "Обновить документацию"
+                    f"Удалить поле '{field_change.path}' из всех сценариев",
+                    "Проверить, не используется ли поле в логике тестов"
                 ]
             )
-
-        # Удаление условно обязательного поля - medium impact
-        if field and field.is_conditional:
+        elif old_field.is_conditional:
             return AnalyzedChange(
                 field_change=field_change,
                 classification=ChangeClassification.REMOVAL,
                 impact=ChangeImpact.MEDIUM,
                 reason="Удалено условно обязательное поле (УО)",
                 recommendations=[
-                    f"Удалить поле '{field_change.path}' из сценариев, где оно используется",
-                    "Проверить, не влияет ли это на условную логику"
+                    f"Удалить поле '{field_change.path}' из сценариев",
+                    "Проверить условия, при которых поле использовалось"
                 ]
             )
-
-        # Удаление опционального поля - medium impact
-        return AnalyzedChange(
-            field_change=field_change,
-            classification=ChangeClassification.REMOVAL,
-            impact=ChangeImpact.MEDIUM,
-            reason="Удалено опциональное поле",
-            recommendations=[
-                f"Удалить поле '{field_change.path}' из сценариев (если используется)",
-                "Проверить, не влияет ли это на логику тестов"
-            ]
-        )
+        else:
+            return AnalyzedChange(
+                field_change=field_change,
+                classification=ChangeClassification.REMOVAL,
+                impact=ChangeImpact.LOW,
+                reason="Удалено опциональное поле",
+                recommendations=[
+                    f"Удалить поле '{field_change.path}' из сценариев, если оно используется",
+                    "Изменение не критично для существующих сценариев"
+                ]
+            )
 
     def _analyze_modification(self, field_change: FieldChange) -> AnalyzedChange:
         """Проанализировать изменение поля"""
@@ -266,78 +236,72 @@ class ChangeAnalyzer:
                 field_change=field_change,
                 classification=ChangeClassification.BREAKING,
                 impact=ChangeImpact.CRITICAL,
-                reason=f"Изменен тип поля: {changes['type']}",
+                reason=changes["type"],
                 recommendations=[
                     f"Обновить значения поля '{field_change.path}' в соответствии с новым типом",
-                    f"Преобразовать данные согласно изменению типа",
-                    "Проверить совместимость с существующими данными"
+                    "Преобразовать данные согласно изменению типа"
                 ]
             )
 
         # Поле стало обязательным - breaking
-        if "required" in changes and "→ True" in changes["required"]:
+        if "required" in changes:
+            if "стало обязательным" in changes["required"]:
+                return AnalyzedChange(
+                    field_change=field_change,
+                    classification=ChangeClassification.BREAKING,
+                    impact=ChangeImpact.HIGH,
+                    reason=changes["required"],
+                    recommendations=[
+                        f"Добавить поле '{field_change.path}' во все сценарии, где оно отсутствует"
+                    ]
+                )
+            else:  # Стало опциональным
+                return AnalyzedChange(
+                    field_change=field_change,
+                    classification=ChangeClassification.NON_BREAKING,
+                    impact=ChangeImpact.LOW,
+                    reason=changes["required"],
+                    recommendations=[
+                        "Изменение не требует обновления сценариев"
+                    ]
+                )
+
+        # Поле стало условно обязательным
+        if "conditional" in changes:
+            if "стало условно обязательным" in changes["conditional"]:
+                condition_desc = changes.get("condition", "")
+                full_reason = f"{changes['conditional']}: {condition_desc}" if condition_desc else changes["conditional"]
+                return AnalyzedChange(
+                    field_change=field_change,
+                    classification=ChangeClassification.BREAKING,
+                    impact=ChangeImpact.HIGH,
+                    reason=full_reason,
+                    recommendations=[
+                        f"Проверить условия для поля '{field_change.path}'",
+                        "Добавить поле в сценарии, где выполняются условия"
+                    ]
+                )
+            else:  # Перестало быть УО
+                return AnalyzedChange(
+                    field_change=field_change,
+                    classification=ChangeClassification.NON_BREAKING,
+                    impact=ChangeImpact.LOW,
+                    reason=changes["conditional"],
+                    recommendations=[
+                        "Изменение не требует немедленных действий"
+                    ]
+                )
+
+        # Изменилось условие УО
+        if "condition" in changes and field_change.new_meta and field_change.new_meta.is_conditional:
             return AnalyzedChange(
                 field_change=field_change,
                 classification=ChangeClassification.BREAKING,
                 impact=ChangeImpact.HIGH,
-                reason="Поле стало обязательным",
-                recommendations=[
-                    f"Добавить поле '{field_change.path}' во все сценарии, где оно отсутствует",
-                    "Определить подходящие значения для поля"
-                ]
-            )
-
-        # Поле стало опциональным - non-breaking
-        if "required" in changes and "→ False" in changes["required"]:
-            return AnalyzedChange(
-                field_change=field_change,
-                classification=ChangeClassification.NON_BREAKING,
-                impact=ChangeImpact.LOW,
-                reason="Поле стало опциональным",
-                recommendations=[
-                    "Изменение не требует обновления сценариев",
-                    f"Можно удалить поле '{field_change.path}' из сценариев (опционально)"
-                ]
-            )
-
-        # ✅ Поле стало условно обязательным (Н → УО)
-        if "conditional" in changes and "False → True" in changes["conditional"]:
-            return AnalyzedChange(
-                field_change=field_change,
-                classification=ChangeClassification.BREAKING,
-                impact=ChangeImpact.HIGH,
-                reason="Поле стало условно обязательным (УО)",
-                recommendations=[
-                    f"Проверить условия для поля '{field_change.path}'",
-                    f"Добавить поле в сценарии, где выполняются условия",
-                    "Изучить новое условие обязательности"
-                ]
-            )
-
-        # ✅ Поле перестало быть УО (УО → Н)
-        if "conditional" in changes and "True → False" in changes["conditional"]:
-            return AnalyzedChange(
-                field_change=field_change,
-                classification=ChangeClassification.NON_BREAKING,
-                impact=ChangeImpact.LOW,
-                reason="Поле перестало быть условно обязательным",
-                recommendations=[
-                    "Изменение не требует немедленных действий",
-                    f"Поле '{field_change.path}' теперь опциональное"
-                ]
-            )
-
-        # ✅ Изменилось условие УО
-        if "condition" in changes:
-            return AnalyzedChange(
-                field_change=field_change,
-                classification=ChangeClassification.BREAKING,
-                impact=ChangeImpact.HIGH,
-                reason="Изменилось условие для условно обязательного поля",
+                reason=f"Изменилось условие для условно обязательного поля: {changes['condition']}",
                 recommendations=[
                     f"Проверить новое условие для поля '{field_change.path}'",
-                    "Обновить сценарии согласно новому условию",
-                    "Изучить детали изменения условия"
+                    "Обновить сценарии согласно новому условию"
                 ]
             )
 
@@ -347,118 +311,48 @@ class ChangeAnalyzer:
                 field_change=field_change,
                 classification=ChangeClassification.BREAKING,
                 impact=ChangeImpact.HIGH,
-                reason=f"Изменен справочник: {changes['dictionary']}",
+                reason=changes["dictionary"],
                 recommendations=[
                     f"Обновить значения поля '{field_change.path}' согласно новому справочнику",
-                    f"Проверить актуальность кодов нового справочника",
-                    "Загрузить новую версию справочника"
+                    "Проверить актуальность кодов"
                 ]
             )
 
-        # Изменение ограничений - medium impact
-        if any(key in changes for key in ["minLength", "maxLength", "minimum", "maximum", "pattern"]):
-            constraint_changes = [f"{k}: {v}" for k, v in changes.items() if k in ["minLength", "maxLength", "minimum", "maximum", "pattern"]]
+        # Изменение ограничений
+        if "constraints" in changes:
+            constraint_desc = changes["constraints"]
+            is_restriction = "ужесточено" in constraint_desc.lower()
+
+            return AnalyzedChange(
+                field_change=field_change,
+                classification=ChangeClassification.BREAKING if is_restriction else ChangeClassification.NON_BREAKING,
+                impact=ChangeImpact.HIGH if is_restriction else ChangeImpact.MEDIUM,
+                reason=constraint_desc,
+                recommendations=[
+                    f"Проверить значения поля '{field_change.path}' на соответствие новым ограничениям"
+                ]
+            )
+
+        # Изменение формата
+        if "format" in changes:
             return AnalyzedChange(
                 field_change=field_change,
                 classification=ChangeClassification.NON_BREAKING,
-                impact=ChangeImpact.MEDIUM,
-                reason=f"Изменены ограничения поля: {', '.join(constraint_changes)}",
+                impact=ChangeImpact.LOW,
+                reason=changes["format"],
                 recommendations=[
-                    f"Проверить значения поля '{field_change.path}' на соответствие новым ограничениям",
-                    f"Обновить тестовые данные при необходимости"
+                    "Проверить соответствие значений новому формату"
                 ]
             )
 
-        # Прочие изменения - low impact
+        # Прочие изменения
+        all_changes = ", ".join(changes.values())
         return AnalyzedChange(
             field_change=field_change,
             classification=ChangeClassification.NON_BREAKING,
             impact=ChangeImpact.LOW,
-            reason=f"Изменены свойства: {', '.join(changes.keys())}",
+            reason=all_changes,
             recommendations=[
-                "Изменение не требует немедленных действий",
-                "Рассмотреть обновление при следующей ревизии сценариев"
+                "Изменение не требует немедленных действий"
             ]
         )
-
-
-class ChangeAnalysisResult:
-    """
-    Результат анализа изменений
-
-    Attributes:
-        old_schema: Путь к старой схеме
-        new_schema: Путь к новой схеме
-        diff: Различия между схемами
-        analyzed_changes: Проанализированные изменения
-    """
-
-    def __init__(
-        self,
-        old_schema: Path,
-        new_schema: Path,
-        diff: SchemaDiff,
-        analyzed_changes: List[AnalyzedChange]
-    ):
-        self.old_schema = old_schema
-        self.new_schema = new_schema
-        self.diff = diff
-        self.analyzed_changes = analyzed_changes
-
-    @property
-    def breaking_changes(self) -> List[AnalyzedChange]:
-        """Получить breaking changes"""
-        return [
-            c for c in self.analyzed_changes
-            if c.classification == ChangeClassification.BREAKING
-        ]
-
-    @property
-    def non_breaking_changes(self) -> List[AnalyzedChange]:
-        """Получить non-breaking changes"""
-        return [
-            c for c in self.analyzed_changes
-            if c.classification == ChangeClassification.NON_BREAKING
-        ]
-
-    @property
-    def critical_changes(self) -> List[AnalyzedChange]:
-        """Получить критические изменения"""
-        return [
-            c for c in self.analyzed_changes
-            if c.impact == ChangeImpact.CRITICAL
-        ]
-
-    @property
-    def high_impact_changes(self) -> List[AnalyzedChange]:
-        """Получить изменения с высоким влиянием"""
-        return [
-            c for c in self.analyzed_changes
-            if c.impact == ChangeImpact.HIGH
-        ]
-
-    def get_changes_by_impact(self, impact: ChangeImpact) -> List[AnalyzedChange]:
-        """Получить изменения по уровню влияния"""
-        return [c for c in self.analyzed_changes if c.impact == impact]
-
-    def get_changes_by_classification(
-        self,
-        classification: ChangeClassification
-    ) -> List[AnalyzedChange]:
-        """Получить изменения по классификации"""
-        return [c for c in self.analyzed_changes if c.classification == classification]
-
-    def to_dict(self) -> Dict:
-        """Преобразовать результат в словарь"""
-        return {
-            "old_schema": str(self.old_schema),
-            "new_schema": str(self.new_schema),
-            "summary": {
-                "total_changes": len(self.analyzed_changes),
-                "breaking_changes": len(self.breaking_changes),
-                "non_breaking_changes": len(self.non_breaking_changes),
-                "critical_impact": len(self.critical_changes),
-                "high_impact": len(self.high_impact_changes)
-            },
-            "changes": [c.to_dict() for c in self.analyzed_changes]
-        }

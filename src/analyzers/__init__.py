@@ -6,7 +6,7 @@ from src.analyzers.change_analyzer import (
     ChangeClassification,
     ChangeImpact,
     AnalyzedChange,
-    ChangeAnalysisResult
+    AnalysisResult
 )
 
 __all__ = [
@@ -14,5 +14,5 @@ __all__ = [
     "ChangeClassification",
     "ChangeImpact",
     "AnalyzedChange",
-    "ChangeAnalysisResult"
+    "AnalysisResult"
 ]
