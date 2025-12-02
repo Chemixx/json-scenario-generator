@@ -2,7 +2,8 @@
 Тесты для парсера JSON Schema
 """
 from src.parsers.schema_parser import SchemaParser
-from src.models.schema_models import FieldMetadata
+from src.models.schema_models import FieldMetadata, ConditionalRequirement
+
 
 # ============================================================================
 # FIXTURES: Тестовые данные
@@ -147,7 +148,8 @@ def test_schema_parser_initialization():
     """Тест: создание экземпляра парсера"""
     parser = SchemaParser()
     assert parser is not None
-    assert parser.logger is not None
+    assert parser.fields is not None
+    # УДАЛЕНО: assert parser.logger is not None (logger не является атрибутом)
 
 
 # ============================================================================
@@ -226,14 +228,14 @@ def test_parse_array_schema():
     # Проверяем массивы
     assert "tags" in fields
     assert fields["tags"].field_type == "array"
-    assert fields["tags"].items is not None
-    assert fields["tags"].items.field_type == "string"
+    assert fields["tags"].is_collection is True  # ИЗМЕНЕНО: проверяем is_collection вместо items
     assert fields["tags"].constraints["minItems"] == 1
     assert fields["tags"].constraints["maxItems"] == 10
 
     # Проверяем массив объектов
     assert "users" in fields
     assert fields["users"].field_type == "array"
+    assert fields["users"].is_collection is True  # ИЗМЕНЕНО
     assert "users[]/id" in fields
     assert "users[]/name" in fields
 
@@ -263,7 +265,11 @@ def test_parse_schema_with_conditions():
 
     # Проверяем условное поле
     assert fields["childrenCount"].is_conditional is True
-    assert fields["childrenCount"].condition == "hasChildren == true"
+
+    # ИЗМЕНЕНО: теперь condition - это объект ConditionalRequirement, а не строка
+    assert isinstance(fields["childrenCount"].condition, ConditionalRequirement)
+    assert fields["childrenCount"].condition.expression == "hasChildren == true"
+
     assert fields["hasChildren"].is_conditional is False
 
 
@@ -321,234 +327,104 @@ def test_extract_array_constraints():
 
 
 # ============================================================================
-# ТЕСТЫ: Сравнение схем
+# ТЕСТЫ: Сравнение схем (УДАЛЕНЫ - перенесены в test_schema_comparator.py)
 # ============================================================================
 
-def test_compare_schemas_added_fields():
-    """Тест: сравнение схем - добавленные поля"""
-    parser = SchemaParser()
-
-    old_schema = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"}
-        }
-    }
-
-    new_schema = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "email": {"type": "string"}
-        }
-    }
-
-    old_fields = parser.parse_schema(old_schema)
-    new_fields = parser.parse_schema(new_schema)
-
-    diff = parser.compare_schemas(old_fields, new_fields)
-
-    assert len(diff.added_fields) == 1
-    assert diff.added_fields[0].path == "email"
-    assert diff.added_fields[0].change_type == "added"
-
-
-def test_compare_schemas_removed_fields():
-    """Тест: сравнение схем - удаленные поля"""
-    parser = SchemaParser()
-
-    old_schema = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "integer"}
-        }
-    }
-
-    new_schema = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"}
-        }
-    }
-
-    old_fields = parser.parse_schema(old_schema)
-    new_fields = parser.parse_schema(new_schema)
-
-    diff = parser.compare_schemas(old_fields, new_fields)
-
-    assert len(diff.removed_fields) == 1
-    assert diff.removed_fields[0].path == "age"
-    assert diff.removed_fields[0].change_type == "removed"
-
-
-def test_compare_schemas_modified_fields():
-    """Тест: сравнение схем - измененные поля"""
-    parser = SchemaParser()
-
-    old_schema = {
-        "type": "object",
-        "properties": {
-            "age": {
-                "type": "string",
-                "minLength": 1
-            }
-        }
-    }
-
-    new_schema = {
-        "type": "object",
-        "properties": {
-            "age": {
-                "type": "integer",
-                "minimum": 0
-            }
-        }
-    }
-
-    old_fields = parser.parse_schema(old_schema)
-    new_fields = parser.parse_schema(new_schema)
-
-    diff = parser.compare_schemas(old_fields, new_fields)
-
-    assert len(diff.modified_fields) == 1
-    assert diff.modified_fields[0].path == "age"
-    assert diff.modified_fields[0].change_type == "modified"
-    assert "type" in diff.modified_fields[0].changes
-
-
-def test_compare_schemas_required_change():
-    """Тест: изменение обязательности поля"""
-    parser = SchemaParser()
-
-    old_schema = {
-        "type": "object",
-        "properties": {
-            "email": {"type": "string"}
-        }
-    }
-
-    new_schema = {
-        "type": "object",
-        "required": ["email"],
-        "properties": {
-            "email": {"type": "string"}
-        }
-    }
-
-    old_fields = parser.parse_schema(old_schema)
-    new_fields = parser.parse_schema(new_schema)
-
-    diff = parser.compare_schemas(old_fields, new_fields)
-
-    assert len(diff.modified_fields) == 1
-    assert "required" in diff.modified_fields[0].changes
+# УДАЛЕНО: test_compare_schemas_added_fields()
+# УДАЛЕНО: test_compare_schemas_removed_fields()
+# УДАЛЕНО: test_compare_schemas_modified_fields()
+# УДАЛЕНО: test_compare_schemas_required_change()
 
 
 # ============================================================================
-# ТЕСТЫ: Утилитарные методы
+# ТЕСТЫ: Утилитарные методы (УДАЛЕНЫ - методы больше не существуют)
 # ============================================================================
 
-def test_build_path():
-    """Тест: построение пути к полю"""
-    parser = SchemaParser()
-
-    # Корневой уровень
-    path = parser._build_path("", "name")
-    assert path == "name"
-
-    # Вложенный уровень
-    path = parser._build_path("user", "email")
-    assert path == "user/email"
-
-    # Глубоко вложенный
-    path = parser._build_path("user/address", "city")
-    assert path == "user/address/city"
+# УДАЛЕНО: test_build_path() - метод _build_path больше не существует
+# УДАЛЕНО: test_get_required_fields() - метод _get_required_fields больше не существует
+# УДАЛЕНО: test_fields_differ() - метод _fields_differ перенесен в SchemaComparator
+# УДАЛЕНО: test_schema_diff_statistics() - метод compare_schemas перенесен в SchemaComparator
 
 
-def test_get_required_fields():
-    """Тест: получение списка обязательных полей"""
+# ============================================================================
+# НОВЫЕ ТЕСТЫ: Проверка парсинга ConditionalRequirement
+# ============================================================================
+
+def test_parse_condition_as_dict():
+    """Тест: парсинг условия в виде объекта"""
     parser = SchemaParser()
 
     schema = {
         "type": "object",
-        "required": ["name", "email"],
-        "properties": {}
-    }
-
-    required = parser._get_required_fields(schema)
-
-    assert len(required) == 2
-    assert "name" in required
-    assert "email" in required
-
-
-def test_fields_differ():
-    """Тест: проверка различия полей"""
-    parser = SchemaParser()
-
-    field1 = FieldMetadata(
-        path="test",
-        name="test",
-        field_type="string",
-        is_required=True
-    )
-
-    field2 = FieldMetadata(
-        path="test",
-        name="test",
-        field_type="string",
-        is_required=True
-    )
-
-    field3 = FieldMetadata(
-        path="test",
-        name="test",
-        field_type="integer",
-        is_required=True
-    )
-
-    # Одинаковые поля
-    assert parser._fields_differ(field1, field2) is False
-
-    # Разные поля
-    assert parser._fields_differ(field1, field3) is True
-
-
-# ============================================================================
-# ТЕСТЫ: Статистика изменений
-# ============================================================================
-
-def test_schema_diff_statistics():
-    """Тест: статистика изменений"""
-    parser = SchemaParser()
-
-    old_schema = {
-        "type": "object",
-        "required": ["name"],
         "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "string"}
+            "pledges": {
+                "type": "array",
+                "condition": {
+                    "expression": "in(#this.productCd, 10410001, 10410002)",
+                    "message": "Продукт PACCREACT или PACLIREACT",
+                    "dqCode": 12345
+                }
+            }
         }
     }
 
-    new_schema = {
+    fields = parser.parse_schema(schema)
+
+    assert "pledges" in fields
+    assert fields["pledges"].is_conditional is True
+    assert isinstance(fields["pledges"].condition, ConditionalRequirement)
+    assert fields["pledges"].condition.expression == "in(#this.productCd, 10410001, 10410002)"
+    assert fields["pledges"].condition.message == "Продукт PACCREACT или PACLIREACT"
+    assert fields["pledges"].condition.dq_code == 12345
+
+
+def test_parse_condition_as_string():
+    """Тест: парсинг условия в виде строки"""
+    parser = SchemaParser()
+
+    schema = {
         "type": "object",
-        "required": ["name"],
         "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "integer"},
-            "email": {"type": "string"}
+            "taxNumber": {
+                "type": "string",
+                "condition": "notNull(#this.taxNumber)"
+            }
         }
     }
 
-    old_fields = parser.parse_schema(old_schema)
-    new_fields = parser.parse_schema(new_schema)
+    fields = parser.parse_schema(schema)
 
-    diff = parser.compare_schemas(old_fields, new_fields)
+    assert "taxNumber" in fields
+    assert fields["taxNumber"].is_conditional is True
+    assert isinstance(fields["taxNumber"].condition, ConditionalRequirement)
+    assert fields["taxNumber"].condition.expression == "notNull(#this.taxNumber)"
+    # message должно быть сгенерировано автоматически
+    assert fields["taxNumber"].condition.message is not None
 
-    # Проверяем статистику
-    assert diff.total_changes() == 2  # 1 добавлено + 1 изменено
-    assert len(diff.added_fields) == 1
-    assert len(diff.modified_fields) == 1
-    assert len(diff.removed_fields) == 0
+
+def test_parse_is_collection_flag():
+    """Тест: проверка флага is_collection"""
+    parser = SchemaParser()
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "creditAmt": {
+                "type": "integer"
+            },
+            "tags": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+
+    fields = parser.parse_schema(schema)
+
+    # Обычное поле - не коллекция
+    assert fields["creditAmt"].is_collection is False
+
+    # Массив - это коллекция
+    assert fields["tags"].is_collection is True

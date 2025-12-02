@@ -6,6 +6,7 @@ from dataclasses import dataclass, field as dataclass_field
 from typing import Optional, Dict, List, Any
 from datetime import datetime
 from enum import Enum
+import re
 
 
 # ============================================================================
@@ -103,6 +104,92 @@ class VersionInfo:
 
 
 # ============================================================================
+# DATACLASS: Условная обязательность поля (НОВЫЙ КЛАСС)
+# ============================================================================
+
+@dataclass
+class ConditionalRequirement:
+    """
+    Условная обязательность поля (аналог ConditionalRequirement.java)
+
+    Представляет условие, при котором поле становится обязательным.
+    Используется для полей с типом обязательности "УО" (условно обязательное).
+
+    Attributes:
+        expression: SpEL выражение для проверки условия
+                   (например, "in(#this.productCd, 10410001, 10410002)")
+        message: Человекочитаемое описание условия
+                 (автоматически генерируется из expression, если не указано)
+        dq_code: Код проверки Data Quality (опционально, для будущего использования)
+
+    Example:
+        >>> cond = ConditionalRequirement(
+        ...     expression="in(#this.productCd, 10410001, 10410002)",
+        ...     message="Продукт PACCREACT или PACLIREACT"
+        ... )
+        >>> print(cond.message)
+        'Продукт PACCREACT или PACLIREACT'
+
+        >>> # Автогенерация message
+        >>> cond2 = ConditionalRequirement(
+        ...     expression="eq(#root.loanRequest.loanTypeCd, 10340001)"
+        ... )
+        >>> print(cond2.message)
+        'eq(loanRequest.loanTypeCd, 10340001)'
+    """
+    expression: str
+    message: Optional[str] = None
+    dq_code: Optional[int] = None
+
+    def __post_init__(self):
+        """Автоматически генерировать message если не задано"""
+        if not self.message:
+            self.message = self._expr_to_message(self.expression)
+
+    @staticmethod
+    def _expr_to_message(expression: str) -> str:
+        """
+        Преобразовать SpEL выражение в человекочитаемое сообщение
+
+        Упрощает техническое SpEL выражение, делая его более понятным:
+        - Удаляет префиксы #this., #root., #parent.
+        - Заменяет операторы на русские аналоги (&&→И, ||→ИЛИ, !=→НЕ)
+        - Убирает L суффикс у чисел (10410001L → 10410001)
+
+        Args:
+            expression: Исходное SpEL выражение
+
+        Returns:
+            Упрощенное сообщение
+
+        Example:
+            >>> ConditionalRequirement._expr_to_message(
+            ...     "in(#this.productCd, 10410001L, 10410002L)"
+            ... )
+            'in(productCd, 10410001, 10410002)'
+        """
+        message = expression
+        message = re.sub(r'#\w+\.', '', message)         # #this. → ""
+        message = re.sub(r'(\d+)L', r'\1', message)      # 10410001L → 10410001
+        message = message.replace('!=', 'НЕ')
+        message = message.replace('!', 'НЕ ')
+        message = message.replace('==', '=')
+        message = message.replace('&&', 'И')
+        message = message.replace('||', 'ИЛИ')
+        message = message.replace('?.', '.')
+        return message
+
+    def __str__(self) -> str:
+        return f"ConditionalRequirement({self.message})"
+
+    def __repr__(self) -> str:
+        return (
+            f"ConditionalRequirement(expression='{self.expression[:50]}...', "
+            f"message='{self.message}')"
+        )
+
+
+# ============================================================================
 # DATACLASS: Метаданные поля из JSON Schema
 # ============================================================================
 
@@ -117,7 +204,7 @@ class FieldMetadata:
         field_type: Тип поля ("integer", "string", "object", "array", "boolean", "number")
         is_required: Обязательно ли поле (из блока "required")
         is_conditional: Условно обязательное поле (УО) - есть блок "condition"
-        condition: Условие для УО (expression + message из JSON Schema)
+        condition: Условие для УО (объект ConditionalRequirement)
         dictionary: Название справочника (например, "PRODUCT_TYPE")
         constraints: Ограничения (minLength, maxLength, minItems, pattern и т.д.)
         description: Описание поля
@@ -125,6 +212,16 @@ class FieldMetadata:
         items: Метаданные элементов (для массивов)
         format: Формат данных ("date", "date-time", "email" и т.д.)
         default: Значение по умолчанию
+
+        # НОВЫЕ ПОЛЯ (для поддержки ValidationElement логики):
+        is_collection: Это массив? (True для type="array")
+        children: Список вложенных полей (иерархическая структура)
+        precondition: Предусловие для проверки (опционально)
+
+        # DQ коды (опционально, пока не используются):
+        always_required_dq_code: DQ код для обязательных полей
+        conditional_dq_code: DQ код для УО полей
+        dictionary_dq_code: DQ код для справочных значений
 
     Example:
         >>> field_meta = FieldMetadata(
@@ -136,13 +233,15 @@ class FieldMetadata:
         ... )
         >>> print(field_meta.is_primitive())
         True
+        >>> print(field_meta.get_requirement_status())
+        'О'
     """
     path: str
     name: str
     field_type: str
     is_required: bool = False
     is_conditional: bool = False
-    condition: Optional[Dict[str, Any]] = None
+    condition: Optional[ConditionalRequirement] = None  # ← ИЗМЕНЕНО: было Dict, теперь объект
     dictionary: Optional[str] = None
     constraints: Dict[str, Any] = dataclass_field(default_factory=dict)
     description: str = ""
@@ -150,6 +249,16 @@ class FieldMetadata:
     items: Optional['FieldMetadata'] = None
     format: Optional[str] = None
     default: Optional[Any] = None
+
+    # НОВЫЕ ПОЛЯ
+    is_collection: bool = False
+    children: List['FieldMetadata'] = dataclass_field(default_factory=list)
+    precondition: Optional[str] = None
+
+    # DQ коды (опционально, пока не используются активно)
+    always_required_dq_code: Optional[int] = None
+    conditional_dq_code: Optional[int] = None
+    dictionary_dq_code: Optional[int] = None
 
     def is_primitive(self) -> bool:
         """Проверка, является ли поле примитивным типом"""
@@ -194,14 +303,16 @@ class FieldMetadata:
     def __str__(self) -> str:
         req_status = self.get_requirement_status()
         dict_info = f" [{self.dictionary}]" if self.dictionary else ""
-        return f"{self.path} ({self.field_type}, {req_status}){dict_info}"
+        collection_info = "[]" if self.is_collection else ""
+        return f"{self.path}{collection_info} ({self.field_type}, {req_status}){dict_info}"
 
     def __repr__(self) -> str:
         return (
             f"FieldMetadata(path='{self.path}', "
             f"type='{self.field_type}', "
             f"required={self.is_required}, "
-            f"conditional={self.is_conditional})"
+            f"conditional={self.is_conditional}, "
+            f"is_collection={self.is_collection})"
         )
 
 

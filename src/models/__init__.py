@@ -13,6 +13,7 @@ from .schema_models import (
     FieldMetadata,
     FieldChange,
     SchemaDiff,
+    ConditionalRequirement,  # added last
 )
 from .dictionary_models import (
     DictionaryEntry,
@@ -30,6 +31,7 @@ __all__ = [
     "FieldMetadata",
     "FieldChange",
     "SchemaDiff",
+    "ConditionalRequirement",  # added last
     # Dictionary models
     "DictionaryEntry",
     "Dictionary",

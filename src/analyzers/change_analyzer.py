@@ -8,6 +8,7 @@ from enum import Enum
 
 from ..models import SchemaDiff, FieldChange, FieldMetadata
 from ..parsers import SchemaParser
+from ..core import SchemaComparator  # ← ДОБАВЛЕНО
 from ..utils import get_logger
 
 logger = get_logger(__name__)
@@ -47,8 +48,8 @@ class AnalyzedChange:
             "impact": self.impact.value,
             "reason": self.reason,
             "recommendations": self.recommendations,
-            "old_meta": self.field_change.old_meta.to_dict() if self.field_change.old_meta else None,
-            "new_meta": self.field_change.new_meta.to_dict() if self.field_change.new_meta else None,
+            "old_meta": self.field_change.old_meta.__dict__ if self.field_change.old_meta else None,
+            "new_meta": self.field_change.new_meta.__dict__ if self.field_change.new_meta else None,
             "changes": self.field_change.changes
         }
 
@@ -103,6 +104,7 @@ class ChangeAnalyzer:
 
     def __init__(self):
         self.parser = SchemaParser()
+        self.comparator = SchemaComparator()  # ← ДОБАВЛЕНО
 
     def analyze_changes(self, old_schema_path: Path, new_schema_path: Path) -> AnalysisResult:
         """
@@ -121,8 +123,8 @@ class ChangeAnalyzer:
         old_schema = self.parser.load_schema(old_schema_path)
         new_schema = self.parser.load_schema(new_schema_path)
 
-        # Сравнение схем
-        diff = SchemaParser.compare_schemas(old_schema, new_schema)
+        # Сравнение схем (ОБНОВЛЕНО: используем SchemaComparator)
+        diff = self.comparator.compare(old_schema, new_schema)
 
         # Анализ изменений
         analyzed_changes = []

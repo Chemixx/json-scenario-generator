@@ -8,6 +8,7 @@ from src.models.schema_models import (
     FieldMetadata,
     FieldChange,
     SchemaDiff,
+    ConditionalRequirement,  # ← ДОБАВЛЕНО
 )
 
 
@@ -78,6 +79,87 @@ def test_version_info_str_repr():
 
 
 # ============================================================================
+# ТЕСТЫ: ConditionalRequirement (НОВЫЕ ТЕСТЫ)
+# ============================================================================
+
+def test_conditional_requirement_creation():
+    """Тест создания ConditionalRequirement"""
+    cond = ConditionalRequirement(
+        expression="in(#this.productCd, 10410001, 10410002)",
+        message="Продукт PACCREACT или PACLIREACT"
+    )
+
+    assert cond.expression == "in(#this.productCd, 10410001, 10410002)"
+    assert cond.message == "Продукт PACCREACT или PACLIREACT"
+    assert cond.dq_code is None
+
+
+def test_conditional_requirement_auto_message():
+    """Тест автогенерации message"""
+    # Без указания message
+    cond = ConditionalRequirement(
+        expression="eq(#root.loanRequest.loanTypeCd, 10340001L)"
+    )
+
+    # Должно быть сгенерировано автоматически
+    assert cond.message is not None
+    assert "loanTypeCd" in cond.message
+    assert "10340001" in cond.message  # L должен быть удален
+    assert "#root." not in cond.message  # Префиксы должны быть удалены
+
+
+def test_conditional_requirement_expr_to_message():
+    """Тест метода _expr_to_message()"""
+    # Удаление префиксов
+    result1 = ConditionalRequirement._expr_to_message("#this.productCd")
+    assert result1 == "productCd"
+
+    # Удаление L суффикса
+    result2 = ConditionalRequirement._expr_to_message("in(field, 10410001L, 10410002L)")
+    assert "10410001L" not in result2
+    assert "10410001" in result2
+
+    # Замена операторов
+    result3 = ConditionalRequirement._expr_to_message("field1 != null && field2 == true")
+    assert "НЕ" in result3
+    assert "И" in result3
+    assert "=" in result3
+    assert "!=" not in result3
+    assert "&&" not in result3
+
+    # Замена ?. на .
+    result4 = ConditionalRequirement._expr_to_message("#this?.field?.subfield")
+    assert "?." not in result4
+
+
+def test_conditional_requirement_with_dq_code():
+    """Тест с DQ кодом"""
+    cond = ConditionalRequirement(
+        expression="notNull(#this.taxNumber)",
+        message="ИНН не должен быть пустым",
+        dq_code=12345
+    )
+
+    assert cond.dq_code == 12345
+
+
+def test_conditional_requirement_str_repr():
+    """Тест методов __str__ и __repr__"""
+    cond = ConditionalRequirement(
+        expression="in(#this.productCd, 10410001, 10410002)",
+        message="Продукт PACCREACT"
+    )
+
+    str_result = str(cond)
+    assert "ConditionalRequirement" in str_result
+    assert "Продукт PACCREACT" in str_result
+
+    repr_result = repr(cond)
+    assert "ConditionalRequirement" in repr_result
+    assert "expression" in repr_result
+
+
+# ============================================================================
 # ТЕСТЫ: FieldMetadata
 # ============================================================================
 
@@ -95,6 +177,93 @@ def test_field_metadata_creation():
     assert field_meta.name == "creditAmt"
     assert field_meta.field_type == "integer"
     assert field_meta.is_required is True
+
+
+def test_field_metadata_with_conditional_requirement():
+    """Тест FieldMetadata с условной обязательностью (НОВЫЙ)"""
+    cond_req = ConditionalRequirement(
+        expression="in(#this.productCd, 10410001, 10410002)",
+        message="Продукт PACCREACT или PACLIREACT"
+    )
+
+    field_meta = FieldMetadata(
+        path="loanRequest/pledges",
+        name="pledges",
+        field_type="array",
+        is_conditional=True,
+        condition=cond_req,
+        is_collection=True  # ← НОВОЕ ПОЛЕ
+    )
+
+    assert field_meta.is_conditional is True
+    assert field_meta.condition is not None
+    assert isinstance(field_meta.condition, ConditionalRequirement)
+    assert field_meta.condition.message == "Продукт PACCREACT или PACLIREACT"
+    assert field_meta.is_collection is True  # ← ПРОВЕРКА НОВОГО ПОЛЯ
+
+
+def test_field_metadata_is_collection():
+    """Тест поля is_collection (НОВЫЙ)"""
+    # Массив
+    array_field = FieldMetadata(
+        path="loanRequest/creditParameters",
+        name="creditParameters",
+        field_type="array",
+        is_collection=True
+    )
+    assert array_field.is_collection is True
+
+    # Не массив
+    simple_field = FieldMetadata(
+        path="loanRequest/creditAmt",
+        name="creditAmt",
+        field_type="integer"
+    )
+    assert simple_field.is_collection is False
+
+
+def test_field_metadata_children():
+    """Тест поля children (НОВЫЙ)"""
+    # Родительское поле
+    parent = FieldMetadata(
+        path="loanRequest",
+        name="loanRequest",
+        field_type="object"
+    )
+
+    # Дочерние поля
+    child1 = FieldMetadata(
+        path="loanRequest/creditAmt",
+        name="creditAmt",
+        field_type="integer"
+    )
+    child2 = FieldMetadata(
+        path="loanRequest/creditPeriod",
+        name="creditPeriod",
+        field_type="integer"
+    )
+
+    parent.children = [child1, child2]
+
+    assert len(parent.children) == 2
+    assert parent.children[0].name == "creditAmt"
+    assert parent.children[1].name == "creditPeriod"
+
+
+def test_field_metadata_dq_codes():
+    """Тест DQ кодов (НОВЫЙ)"""
+    field_meta = FieldMetadata(
+        path="loanRequest/creditAmt",
+        name="creditAmt",
+        field_type="integer",
+        is_required=True,
+        always_required_dq_code=10001,
+        dictionary_dq_code=10002
+    )
+
+    assert field_meta.always_required_dq_code == 10001
+    assert field_meta.dictionary_dq_code == 10002
+    assert field_meta.conditional_dq_code is None  # По умолчанию None
 
 
 def test_field_metadata_type_checks():
@@ -192,6 +361,34 @@ def test_field_metadata_requirement_status():
         field_type="string"
     )
     assert optional.get_requirement_status() == "Н"
+
+
+def test_field_metadata_str_repr():
+    """Тест методов __str__ и __repr__ (ОБНОВЛЕН)"""
+    # Обычное поле
+    field1 = FieldMetadata(
+        path="loanRequest/creditAmt",
+        name="creditAmt",
+        field_type="integer",
+        is_required=True
+    )
+    str_result1 = str(field1)
+    assert "loanRequest/creditAmt" in str_result1
+    assert "О" in str_result1
+
+    # Поле-массив
+    field2 = FieldMetadata(
+        path="loanRequest/creditParameters",
+        name="creditParameters",
+        field_type="array",
+        is_collection=True
+    )
+    str_result2 = str(field2)
+    assert "[]" in str_result2  # Должен быть маркер массива
+
+    # __repr__
+    repr_result = repr(field2)
+    assert "is_collection=True" in repr_result
 
 
 # ============================================================================
