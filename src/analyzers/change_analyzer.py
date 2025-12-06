@@ -123,8 +123,13 @@ class ChangeAnalyzer:
         old_schema = self.parser.load_schema(old_schema_path)
         new_schema = self.parser.load_schema(new_schema_path)
 
-        # Сравнение схем (ОБНОВЛЕНО: используем SchemaComparator)
-        diff = self.comparator.compare(old_schema, new_schema)
+        # Сравнение схем с передачей имен файлов
+        diff = self.comparator.compare(
+            old_schema,
+            new_schema,
+            old_name=old_schema_path.name,
+            new_name=new_schema_path.name
+        )
 
         # Анализ изменений
         analyzed_changes = []

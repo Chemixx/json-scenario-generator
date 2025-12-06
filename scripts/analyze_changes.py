@@ -35,7 +35,7 @@ def parse_arguments():
         epilog="""
 Примеры использования:
   # Базовый анализ
-  python scripts/analyze_changes.py data/V070Call1Rq.json data/V072Call1Rq.json
+  python scripts/analyze_changes.py data/V73Call1Rq.json data/V72Call1Rq.json
   
   # С сохранением отчета
   python scripts/analyze_changes.py data/V070Call1Rq.json data/V072Call1Rq.json --output output/report.json
