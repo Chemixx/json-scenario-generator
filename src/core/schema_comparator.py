@@ -48,7 +48,9 @@ class SchemaComparator:
             old_version: str = "",
             new_version: str = "",
             call: str = "",
-            adapter: str = "front-adapter"
+            adapter: str = "front-adapter",
+            old_name: str = "",
+            new_name: str = ""
     ) -> SchemaDiff:
         """
         Сравнить две распарсенные схемы
@@ -60,6 +62,8 @@ class SchemaComparator:
             new_version: Версия новой схемы (например, "072")
             call: Тип Call'а (например, "Call1")
             adapter: Название адаптера (по умолчанию "front-adapter")
+            old_name: Имя файла старой схемы (например, "V72Call1Rq.json")
+            new_name: Имя файла новой схемы (например, "V73Call1Rq.json")
 
         Returns:
             Объект SchemaDiff с описанием всех изменений
@@ -70,11 +74,17 @@ class SchemaComparator:
             ...     old_schema={"field1": FieldMetadata(...)},
             ...     new_schema={"field1": FieldMetadata(...), "field2": FieldMetadata(...)},
             ...     old_version="070",
-            ...     new_version="072"
+            ...     new_version="072",
+            ...     old_name="V72Call1Rq.json",
+            ...     new_name="V73Call1Rq.json"
             ... )
             >>> print(diff.total_changes())  # 1 (добавлено field2)
         """
-        logger.info(f"🔄 Сравнение схем: {old_version} → {new_version}")
+        # Используем имена файлов, если они переданы, иначе версии
+        old_label = old_name if old_name else old_version
+        new_label = new_name if new_name else new_version
+        
+        logger.info(f"🔄 Сравнение схем: {old_label} → {new_label}")
 
         all_paths = set(old_schema.keys()) | set(new_schema.keys())
 
