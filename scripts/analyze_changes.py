@@ -17,18 +17,13 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # ============================================================================
-# ИМПОРТЫ (ОБНОВЛЕНО)
+# ИМПОРТЫ
 # ============================================================================
 
 from src.analyzers import ChangeAnalyzer
-from src.models import (
-    # AnalyzedChange,  # ← УБРАНО: не используется напрямую
-    AnalysisResult,
-    # ChangeType,      # ← УБРАНО: используется через .change_type (свойство)
-    # BreakingLevel,   # ← УБРАНО: используется через .breaking_level (свойство)
-    ImpactLevel,       # ← ОСТАВЛЕНО: используется для сравнения
-)
+from src.models import AnalysisResult, ImpactLevel
 from src.utils import get_logger
+from src.formatters import ReportFormatter
 
 logger = get_logger(__name__)
 
@@ -100,210 +95,10 @@ def parse_arguments():
     return parser.parse_args()
 
 
-# ============================================================================
-# ФУНКЦИИ ВЫВОДА ОТЧЕТА (ОБНОВЛЕНО)
-# ============================================================================
-
-def print_text_report(result: AnalysisResult, verbose: bool = False):
-    """Вывести отчет в текстовом формате"""
-    print("\n" + "=" * 80)
-    print("📊 ОТЧЕТ ОБ ИЗМЕНЕНИЯХ JSON SCHEMA")
-    print("=" * 80)
-
-    print(f"\n📁 Старая версия: {result.old_version}")
-    print(f"📁 Новая версия: {result.new_version}")
-
-    # Получаем статистику из нового API
-    stats = result.statistics
-
-    # Статистика
-    print("\n📈 СТАТИСТИКА:")
-    print(f"  • Всего изменений: {stats['total_changes']}")
-    print(f"  • Добавлено полей: {stats['change_types']['additions']}")
-    print(f"  • Удалено полей: {stats['change_types']['removals']}")
-    print(f"  • Модифицировано полей: {stats['change_types']['modifications']}")
-
-    print("\n  ОБРАТНАЯ СОВМЕСТИМОСТЬ:")
-    print(f"  • Breaking changes: {stats['breaking_level']['breaking']}  ⚠️")
-    print(f"  • Non-breaking changes: {stats['breaking_level']['non_breaking']}  ✅")
-
-    print("\n  УРОВЕНЬ ВЛИЯНИЯ:")
-    print(f"  • Критические: {stats['impact_level']['critical']}")
-    print(f"  • Высокое влияние: {stats['impact_level']['high']}")
-    print(f"  • Среднее влияние: {stats['impact_level']['medium']}")
-    print(f"  • Низкое влияние: {stats['impact_level']['low']}")
-
-    # Критические изменения
-    if result.critical_changes:
-        print(f"\n🚨 КРИТИЧЕСКИЕ ИЗМЕНЕНИЯ ({len(result.critical_changes)}):")
-        for i, change in enumerate(result.critical_changes, 1):
-            print(f"\n  {i}. 📍 {change.path}")
-            print(f"     Тип изменения: {change.change_type.to_russian()}")
-            print(f"     Причина: {change.reason}")
-
-            if verbose and change.recommendations:
-                print("     Рекомендации:")
-                for rec in change.recommendations:
-                    print(f"       ✓ {rec}")
-
-    # Breaking changes (не критические)
-    breaking_non_critical = [
-        c for c in result.breaking_changes
-        if c.impact_level != ImpactLevel.CRITICAL
-    ]
-    if breaking_non_critical:
-        print(f"\n⚠️  BREAKING CHANGES ({len(breaking_non_critical)}):")
-        for i, change in enumerate(breaking_non_critical, 1):
-            print(f"\n  {i}. 📍 {change.path}")
-            print(f"     Тип изменения: {change.change_type.to_russian()}")
-            print(f"     Причина: {change.reason}")
-
-            if verbose and change.recommendations:
-                print("     Рекомендации:")
-                for rec in change.recommendations:
-                    print(f"       ✓ {rec}")
-
-    # Добавленные поля
-    additions = result.additions
-    if additions:
-        print(f"\n➕ ДОБАВЛЕННЫЕ ПОЛЯ ({len(additions)}):")
-        for i, change in enumerate(additions, 1):
-            field = change.field_change.new_meta
-            if field:
-                # Определяем статус поля
-                if field.is_required:
-                    status = "О"  # Обязательное
-                elif field.is_conditional:
-                    status = "УО"  # Условно обязательное
-                else:
-                    status = "Н"  # Необязательное
-
-                impact_icon = change.impact_level.to_emoji()
-
-                print(f"  {i}. {impact_icon} {change.path} [{status}]")
-                if verbose:
-                    print(f"     Тип: {field.field_type}")
-                    if change.reason:
-                        print(f"     Причина: {change.reason}")
-                    if field.dictionary:
-                        print(f"     Справочник: {field.dictionary}")
-
-    # Удаленные поля
-    removals = result.removals
-    if removals:
-        print(f"\n➖ УДАЛЕННЫЕ ПОЛЯ ({len(removals)}):")
-        for i, change in enumerate(removals, 1):
-            field = change.field_change.old_meta
-            if field:
-                # Определяем статус поля
-                if field.is_required:
-                    status = "О"
-                elif field.is_conditional:
-                    status = "УО"
-                else:
-                    status = "Н"
-
-                impact_icon = change.impact_level.to_emoji()
-
-                print(f"  {i}. {impact_icon} {change.path} [{status}]")
-                if verbose:
-                    print(f"     Тип: {field.field_type}")
-                    if change.reason:
-                        print(f"     Причина: {change.reason}")
-
-    # Non-breaking changes (только модификации)
-    non_breaking_modifications = result.modifications_non_breaking
-    if non_breaking_modifications:
-        print(f"\n✅ NON-BREAKING ИЗМЕНЕНИЯ ({len(non_breaking_modifications)}):")
-        for i, change in enumerate(non_breaking_modifications, 1):
-            print(f"  {i}. 📍 {change.path}")
-            print(f"     {change.reason}")
-
-            if verbose and change.recommendations:
-                print("     Рекомендации:")
-                for rec in change.recommendations:
-                    print(f"       ✓ {rec}")
-
-    print("\n" + "=" * 80)
-
-    # Итоговая рекомендация
-    if result.has_critical_changes():
-        print("\n⚠️  ВНИМАНИЕ: Обнаружены критические изменения!")
-        print("   Требуется обязательное обновление сценариев.")
-    elif result.has_breaking_changes():
-        print("\n⚠️  ВНИМАНИЕ: Обнаружены breaking changes!")
-        print("   Рекомендуется обновить сценарии.")
-    else:
-        print("\n✅ Все изменения совместимы с предыдущей версией.")
-
-    print()
-
-
-def print_markdown_report(result: AnalysisResult):
-    """Вывести отчет в Markdown формате"""
-    print("# Отчет об изменениях JSON Schema\n")
-    print(f"**Дата анализа:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    print(f"**Старая версия:** `{result.old_version}`  ")
-    print(f"**Новая версия:** `{result.new_version}`\n")
-
-    # Получаем статистику
-    stats = result.statistics
-
-    print("## 📈 Статистика\n")
-    print(f"- **Всего изменений:** {stats['total_changes']}")
-    print(f"- **Breaking changes:** {stats['breaking_level']['breaking']}")
-    print(f"- **Non-breaking changes:** {stats['breaking_level']['non_breaking']}")
-    print(f"- **Добавлено полей:** {stats['change_types']['additions']}")
-    print(f"- **Удалено полей:** {stats['change_types']['removals']}")
-    print(f"- **Критические:** {stats['impact_level']['critical']}")
-    print(f"- **Высокое влияние:** {stats['impact_level']['high']}\n")
-
-    if result.critical_changes:
-        print("## 🚨 Критические изменения\n")
-        for i, change in enumerate(result.critical_changes, 1):
-            print(f"### {i}. `{change.path}`\n")
-            print(f"- **Тип:** {change.change_type.to_russian()}")
-            print(f"- **Причина:** {change.reason}")
-            if change.recommendations:
-                print("- **Рекомендации:**")
-                for rec in change.recommendations:
-                    print(f"  - {rec}")
-            print()
-
-    breaking_non_critical = [
-        c for c in result.breaking_changes
-        if c.impact_level != ImpactLevel.CRITICAL
-    ]
-    if breaking_non_critical:
-        print("## ⚠️ Breaking Changes\n")
-        for i, change in enumerate(breaking_non_critical, 1):
-            print(f"### {i}. `{change.path}`\n")
-            print(f"- **Тип:** {change.change_type.to_russian()}")
-            print(f"- **Причина:** {change.reason}\n")
-
-    if result.additions:
-        print("## ➕ Добавленные поля\n")
-        for i, change in enumerate(result.additions, 1):
-            field = change.field_change.new_meta
-            if field:
-                status = "О" if field.is_required else ("УО" if field.is_conditional else "Н")
-                print(f"{i}. `{change.path}` [{status}] - {change.reason}")
-        print()
-
-    if result.removals:
-        print("## ➖ Удаленные поля\n")
-        for i, change in enumerate(result.removals, 1):
-            field = change.field_change.old_meta
-            if field:
-                status = "О" if field.is_required else ("УО" if field.is_conditional else "Н")
-                print(f"{i}. `{change.path}` [{status}] - {change.reason}")
-        print()
-
-
 def save_json_report(result: AnalysisResult, output_path: Path):
     """Сохранить отчет в JSON"""
-    report = result.to_dict()
-    report["generated_at"] = datetime.now().isoformat()
+    formatter = ReportFormatter()
+    report = formatter.format_json(result)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -335,36 +130,53 @@ def main():
         analyzer = ChangeAnalyzer()
         result = analyzer.analyze_changes(args.old_schema, args.new_schema)
 
+        # =====================================================================
+        # ИСПОЛЬЗУЕМ FORMATTER
+        # =====================================================================
+        formatter = ReportFormatter()
+
         # Вывод отчета
         if args.format == "text":
             # Фильтрация для текстового формата
             if args.only_critical:
-                # Показываем только критические
                 filtered_result = AnalysisResult(
                     old_version=result.old_version,
                     new_version=result.new_version,
                     analyzed_changes=result.critical_changes,
                     analysis_date=result.analysis_date
                 )
-                print_text_report(filtered_result, verbose=args.verbose)
+                report = formatter.format_text(
+                    filtered_result,
+                    verbose=args.verbose,
+                    show_recommendations=args.verbose
+                )
             elif args.only_breaking:
-                # Показываем только breaking
                 filtered_result = AnalysisResult(
                     old_version=result.old_version,
                     new_version=result.new_version,
                     analyzed_changes=result.breaking_changes,
                     analysis_date=result.analysis_date
                 )
-                print_text_report(filtered_result, verbose=args.verbose)
+                report = formatter.format_text(
+                    filtered_result,
+                    verbose=args.verbose,
+                    show_recommendations=args.verbose
+                )
             else:
-                # Показываем все
-                print_text_report(result, verbose=args.verbose)
+                report = formatter.format_text(
+                    result,
+                    verbose=args.verbose,
+                    show_recommendations=args.verbose
+                )
+            print(report)
 
         elif args.format == "markdown":
-            print_markdown_report(result)
+            markdown = formatter.format_markdown(result)
+            print(markdown)
 
         elif args.format == "json":
-            print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+            json_data = formatter.format_json(result)
+            print(json.dumps(json_data, ensure_ascii=False, indent=2))
 
         # Сохранение в файл
         if args.output:
