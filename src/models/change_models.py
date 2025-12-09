@@ -151,6 +151,14 @@ class AnalysisResult:
         ]
 
     @property
+    def modifications_non_breaking(self) -> List[AnalyzedChange]:
+        """Получить non-breaking модификации"""
+        return [
+            c for c in self.non_breaking_changes
+            if c.change_type == ChangeType.MODIFICATION
+        ]
+
+    @property
     def additions(self) -> List[AnalyzedChange]:
         """Список добавленных полей"""
         return [
