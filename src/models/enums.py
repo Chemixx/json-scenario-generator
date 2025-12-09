@@ -100,10 +100,10 @@ class ImpactLevel(Enum):
         >>> if change.impact_level == ImpactLevel.CRITICAL:
         ...     send_alert_to_team()
     """
-    CRITICAL = "critical"  # 🔥 Немедленные действия
-    HIGH = "high"  # ⚡ Высокий приоритет
+    CRITICAL = "critical"  # 🔴 Немедленные действия
+    HIGH = "high"  # 🟠 Высокий приоритет
     MEDIUM = "medium"  # 🟡 Средний приоритет
-    LOW = "low"  # ℹ️ Низкий приоритет
+    LOW = "low"  # 🟢 Низкий приоритет
 
     def to_russian(self) -> str:
         """Русское название уровня влияния"""
@@ -118,10 +118,10 @@ class ImpactLevel(Enum):
     def to_emoji(self) -> str:
         """Эмодзи-индикатор уровня влияния"""
         mapping = {
-            ImpactLevel.CRITICAL: "🔥",
-            ImpactLevel.HIGH: "⚡",
+            ImpactLevel.CRITICAL: "🔴",
+            ImpactLevel.HIGH: "🟠",
             ImpactLevel.MEDIUM: "🟡",
-            ImpactLevel.LOW: "ℹ️"
+            ImpactLevel.LOW: "🟢"
         }
         return mapping[self]
 

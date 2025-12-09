@@ -374,9 +374,19 @@ class ChangeAnalyzer:
         # 6. Изменение ограничений (constraints)
         if "constraints" in changes:
             constraint_desc = changes["constraints"]
+
+            # Улучшенная проверка на ужесточение (множественные формы слов)
             is_restriction = any(
                 keyword in constraint_desc.lower()
-                for keyword in ["ужесточено", "уменьшился", "увеличился минимум"]
+                for keyword in [
+                    "ужесточен",  # ← ИЗМЕНЕНО: захватывает "ужесточено", "ужесточены", "ужесточена"
+                    "уменьшился",
+                    "уменьшилась",
+                    "уменьшилось",
+                    "увеличился минимум",
+                    "сократил",
+                    "сузил"
+                ]
             )
 
             if is_restriction:
