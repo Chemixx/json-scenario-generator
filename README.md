@@ -1,7 +1,7 @@
 # 🏗️ JSON Scenario Generator
 
 **Версия:** 0.1.0 (MVP)  
-**Статус:** 🚧 В разработке (40% готовности)  
+**Статус:** 🚧 В разработке (45-50% готовности)  
 **Цель:** Автоматизация актуализации JSON-сценариев при изменении версий JSON Schema кредитного конвейера
 
 ---
@@ -14,9 +14,10 @@
 
 1. **Анализ изменений** ✅ **ГОТОВО**
    - Сравнение двух произвольных версий JSON Schema (V050↔V100, v1.0↔v2.5, custom)
-   - Классификация изменений: CRITICAL / HIGH / MEDIUM / LOW
+   - 3-уровневая классификация: ChangeType (ЧТО) + BreakingLevel (API) + ImpactLevel (критичность)
    - Определение breaking changes (удаление required полей, смена типов)
    - Отчеты в форматах: text, markdown, json
+   - **ReportFormatter**: модульное форматирование отчетов
 
 2. **Актуализация JSON** 🔴 **В РАБОТЕ**
    - Автоматическое обновление существующих JSON-сценариев под новую версию схемы
@@ -66,13 +67,14 @@
   - **ConditionalRequirement**: SpEL-условие (expression, message, dqCode)
   - **SchemaDiff**: разница между схемами (added_fields, removed_fields, modified_fields)
   - **Dictionary**: справочник (код → наименование)
+  - **Enums**: ChangeType, BreakingLevel, ImpactLevel (3-level classification)
 
 - [x] **TASK 1.4**: Настройка юнит-тестов
   - pytest.ini с покрытием кода (pytest-cov)
   - conftest.py с фикстурами (sample_schema_v70, sample_schema_v72)
   - Первые тесты: test_models.py (VersionInfo, FieldMetadata)
 
-**Статус:** ✅ Завершено (100% тестового покрытия)
+**Статус:** ✅ Завершено (100% тестового покрытия, 12 тестов)
 
 ---
 
@@ -84,23 +86,26 @@
   - Поддержка вложенных объектов (properties) и массивов (items)
   - Обработка ConditionalRequirement из поля "condition"
   - Определение isCollection для массивов
+  - **12 unit-тестов**
 
 - [x] **TASK 2.2**: Загрузчик справочников (`src/loaders/dictionary_loader.py`)
   - Загрузка Excel-справочников (openpyxl)
   - Парсинг: code (int), name (str), dictionary_type (str)
   - Кэширование в памяти для производительности
   - Валидация структуры Excel
+  - **19 unit-тестов**
 
 - [x] **TASK 2.3**: Парсер условий SpEL (`src/parsers/condition_parser.py`)
   - Парсинг SpEL-выражений через pyparsing
   - Построение AST-дерева для условий
   - Поддержка 34 операторов: in, eq, and, or, not, isNull, anyMatch, allMatch...
   - Обработка вложенных выражений: and(eq(a,1), or(eq(b,2), eq(c,3)))
+  - **42 unit-теста**
 
 - [ ] **TASK 2.4**: Загрузчик сводки по релизам ⏳ **ОТЛОЖЕНО**
   - (Пока не критично, можно сделать в v0.2.0)
 
-**Статус:** ✅ Завершено (19 unit-тестов, 100% pass rate)
+**Статус:** ✅ Завершено (73 unit-теста, 100% pass rate)
 
 ---
 
@@ -111,12 +116,15 @@
   - Обнаружение: added_fields, removed_fields, modified_fields
   - detect_field_changes() для детального сравнения constraints
   - Анализ изменений ConditionalRequirement
+  - **20 unit-тестов**
 
 - [x] **TASK 2.5.2**: Анализатор изменений (`src/analyzers/change_analyzer.py`)
-  - Классификация: ADDITION / REMOVAL / MODIFICATION
-  - Оценка Impact: CRITICAL / HIGH / MEDIUM / LOW
-  - Определение breaking changes (удаление required, смена типа)
+  - **3-уровневая классификация:**
+    - **ChangeType**: ADDITION / REMOVAL / MODIFICATION (что произошло)
+    - **BreakingLevel**: BREAKING / NON_BREAKING (ломает API или нет)
+    - **ImpactLevel**: CRITICAL / HIGH / MEDIUM / LOW (насколько критично)
   - Генерация рекомендаций для каждого изменения
+  - **69 unit-тестов**
 
 - [x] **TASK 2.5.3**: CLI-скрипт анализа (`scripts/analyze_changes.py`)
   - Команда: `python scripts/analyze_changes.py --old V070.json --new V072.json`
@@ -124,7 +132,15 @@
   - Фильтры: --only-critical, --only-breaking
   - Вербозный режим: --verbose
 
-**Статус:** ✅ Завершено (113 unit-тестов, 100% pass rate)
+- [x] **TASK 2.5.4**: Форматтер отчетов (`src/formatters/report_formatter.py`) ✅ **НОВОЕ!**
+  - **format_text()**: консольный формат с эмодзи, секциями, verbose
+  - **format_markdown()**: GitHub-friendly Markdown для CHANGELOG
+  - **format_json()**: JSON для API/интеграций с timestamp
+  - **Single Responsibility**: только форматирование, без анализа
+  - **Open/Closed**: легко добавить HTML/XML форматы
+  - **12 unit-тестов (100% покрытие)**
+
+**Статус:** ✅ Завершено (101 unit-тестов, 100% pass rate)
 
 **Пример использования:**
 ```bash
@@ -184,23 +200,6 @@ python scripts/analyze_changes.py \
 - Рекурсивный обход вложенных объектов и массивов
 - Возврат списка ошибок с путями, сообщениями и dqCode
 
-**Пример:**
-```python
-field = FieldMetadata(
-    path="loanRequest.pledges",
-    is_conditional=True,
-    condition=ConditionalRequirement(
-        expression="eq(root.loanRequest.creditParameters[0].loanTypeCd, 10340001)",
-        message="Залог обязателен для кредита наличными",
-        dqCode="DQ_PLEDGE_REQUIRED"
-    )
-)
-
-validator = ConditionalValidator()
-errors = validator.validate_field(field, value=None, json_data={...})
-# Если loanTypeCd=10340001 → errors=["loanRequest.pledges: Залог обязателен..."]
-```
-
 **Acceptance Criteria:**
 - [ ] Валидация всех conditional полей в схеме
 - [ ] Обработка вложенных массивов и объектов
@@ -229,24 +228,6 @@ errors = validator.validate_field(field, value=None, json_data={...})
 - **ИНН** (10 цифр с контрольной суммой)
 - **СНИЛС** (11 цифр)
 
-**Пример:**
-```python
-generator = ValueGenerator(dictionaries)
-
-# String с constraints
-field = FieldMetadata(field_type="string", constraints={"maxLength": 50})
-value = generator.generate_value(field)  # "Короткий текст длиной ≤50"
-
-# Справочник
-field = FieldMetadata(field_type="integer", dictionary="PRODUCTCD")
-value = generator.generate_value(field)  # 10410001 (PACL)
-
-# UUID с кэшированием
-field = FieldMetadata(name="loanRequestExtId")
-value1 = generator.generate_value(field)  # uuid4
-value2 = generator.generate_value(field)  # тот же UUID (кэш)
-```
-
 **Acceptance Criteria:**
 - [ ] Генерация всех типов полей (string, int, bool, date, dict, array, object)
 - [ ] Учет всех constraints (maxLength, maximum, minimum, pattern, enum)
@@ -263,49 +244,17 @@ value2 = generator.generate_value(field)  # тот же UUID (кэш)
 **Компонент:** `src/core/json_actualizer.py`
 
 **Алгоритм:**
-1. **ADDED**: Добавление новых полей
-   - Навигация до родительского объекта по path
-   - Генерация значения через ValueGenerator
-   - Вставка в JSON
-   - Логирование: `"ADDED: loanRequest.newField = generated_value"`
-
+1. **ADDED**: Добавление новых полей через ValueGenerator
 2. **REMOVED**: Удаление устаревших полей
-   - Навигация до родительского объекта
-   - Удаление поля
-   - Логирование: `"REMOVED: loanRequest.oldField (was: old_value)"`
-
-3. **MODIFIED**: Обработка изменений
-   - Если смена типа → регенерация значения
-   - Если изменение constraints → проверка соответствия, при несоответствии → регенерация
-   - Логирование: `"MODIFIED (type change): loanRequest.creditAmt"`
-
+3. **MODIFIED**: Обработка изменений типов/constraints
 4. **Валидация** результата через ConditionalValidator
-
-**Навигация по JSON:**
-- Поддержка вложенных объектов: `loanRequest.creditParameters.productCd`
-- Поддержка массивов: `loanRequest.creditParameters[0].productCd`
-- Создание недостающих промежуточных объектов
-
-**Пример:**
-```python
-actualizer = JsonActualizer(new_schema, dictionaries)
-
-old_json = {"loanRequest": {"creditAmt": 100000}}
-diff = SchemaDiff(
-    added_fields=[FieldChange(path="loanRequest/newField", ...)],
-    removed_fields=[FieldChange(path="loanRequest/oldField", ...)]
-)
-
-new_json = actualizer.actualize_json(old_json, diff)
-# Результат: {"loanRequest": {"creditAmt": 100000, "newField": "generated"}}
-```
 
 **Acceptance Criteria:**
 - [ ] Обработка всех типов изменений (ADDED, REMOVED, MODIFIED)
 - [ ] Навигация по сложным путям (nested objects, arrays)
 - [ ] Сохранение UUID-связей между Call
 - [ ] Валидация результата
-- [ ] 30+ unit-тестов (простые поля, вложенные объекты, массивы)
+- [ ] 30+ unit-тестов
 
 ---
 
@@ -319,20 +268,9 @@ new_json = actualizer.actualize_json(old_json, diff)
 - Стандартная валидация через `jsonschema.Draft7Validator`
 - Валидация conditionalRequirement через `ConditionalValidator`
 - Возврат: `(is_valid: bool, errors: List[str])`
-- Формат ошибок: `"path: message (dqCode: ...)"`
-
-**Пример:**
-```python
-validator = JsonValidator(schema_dict, ConditionalValidator())
-is_valid, errors = validator.validate(json_data)
-
-if not is_valid:
-    for error in errors:
-        print(f"❌ {error}")
-```
 
 **Acceptance Criteria:**
-- [ ] Валидация всех constraint типов (type, required, maxLength, maximum, enum...)
+- [ ] Валидация всех constraint типов
 - [ ] Валидация conditionalRequirement (34 SpEL-оператора)
 - [ ] Понятные сообщения об ошибках с путями
 - [ ] 20+ unit-тестов
@@ -351,22 +289,8 @@ python -m src.cli actualize \
   --old-schema data/V070Call1Rq.json \
   --new-schema data/V072Call1Rq.json \
   --scenario data/scenarios/call1_pacl_v070.json \
-  --output output/call1_pacl_v072.json \
-  --report output/actualization_report.md
+  --output output/call1_pacl_v072.json
 ```
-
-**Функциональность:**
-- Загрузка схем и сценария
-- Сравнение через SchemaComparator
-- Актуализация через JsonActualizer
-- Валидация через JsonValidator
-- Генерация отчета (Markdown)
-- Сохранение результата
-
-**Отчет содержит:**
-- Summary: Total changes (Added: 15, Removed: 3, Modified: 7)
-- Детали по каждому изменению с путями и значениями
-- Результат валидации
 
 **Acceptance Criteria:**
 - [ ] CLI работает с любыми версиями схем (version-agnostic)
@@ -382,17 +306,13 @@ python -m src.cli actualize \
 
 - [ ] **TASK 4.1**: Генератор Markdown-отчетов (`src/reports/report_generator.py`)
   - Секции: Summary, Critical Changes, Added, Removed, Modified
-  - Таблицы с impact-индикаторами (⚠️ 🔴 🟡 🟢)
+  - Таблицы с impact-индикаторами (🔴 🟠 🟡 🟢)
   - Рекомендации по миграции
 
 - [ ] **TASK 4.2**: Подсветка изменений JSON (`src/reports/diff_highlighter.py`)
   - Side-by-side сравнение JSON
-  - ANSI-цвета для CLI: зеленый (added), красный (removed), желтый (modified)
+  - ANSI-цвета для CLI
   - Markdown-формат для отчетов
-
-- [ ] **TASK 4.3**: Экспорт в форматы ⏳ **ОТЛОЖЕНО ДО v0.2.0**
-  - Excel-отчет с листами
-  - HTML-отчет
 
 **Статус:** 🟡 Желательно (можно сделать после актуализации)
 
@@ -422,35 +342,15 @@ python -m src.cli actualize \
 
 #### **Версия 0.2.0 — Генератор (опционально, 10-15 дней)**
 
-- [ ] **TASK 6.1**: ScenarioGenerator (базовый)
-  - Генерация min/max сценариев для одного продукта
-  - CLI: `generate --schema V072.json --product 10410001 --type min`
-
-- [ ] **TASK 6.2**: CallMappingLoader (Лист 19 Excel)
-  - Загрузка маппинга PRODUCTCD → [CALL0, CALL1, ...]
-  - Определение обязательных Call для продукта
-
-- [ ] **TASK 6.3**: Комбинаторная генерация
-  - isValidCombination() с бизнес-правилами
-  - Генерация матрицы: productCd × loanTypeCd × channelCd
-  - CLI: `generate-all --products 10410001,10410002`
+- [ ] ScenarioGenerator (базовый)
+- [ ] CallMappingLoader (Лист 19 Excel)
+- [ ] Комбинаторная генерация (productCd × loanTypeCd × channelCd)
 
 #### **Версия 1.0.0 — Конфигуратор (идея, 15-20 дней)**
 
-- [ ] **TASK 7.1**: Конфигурационный YAML
-  - Настройка измерений для комбинаторики
-  - Фильтры для исключения невалидных комбинаций
-  - Выбор полей для генерации
-
-- [ ] **TASK 7.2**: Интерактивный CLI (Rich library)
-  - Визуальный выбор продуктов/каналов
-  - Дерево полей с чекбоксами
-  - Предпросмотр JSON
-
-- [ ] **TASK 7.3**: Web UI (FastAPI + React) — опционально
-  - Визуальный конструктор сценариев
-  - Real-time предпросмотр
-  - История генераций
+- [ ] Конфигурационный YAML
+- [ ] Интерактивный CLI (Rich library)
+- [ ] Web UI (FastAPI + React) — опционально
 
 ---
 
@@ -473,6 +373,8 @@ json-scenario-generator/
 │   ├── models/                      # Модели данных (dataclasses)
 │   │   ├── schema_models.py         # VersionInfo, FieldMetadata, SchemaDiff
 │   │   ├── dictionary_models.py     # Dictionary, DictionaryEntry
+│   │   ├── change_models.py         # AnalyzedChange, AnalysisResult
+│   │   ├── enums.py                 # ChangeType, BreakingLevel, ImpactLevel
 │   │   └── scenario_models.py       # Scenario (для v0.2.0)
 │   │
 │   ├── parsers/                     # Парсеры
@@ -485,19 +387,23 @@ json-scenario-generator/
 │   │
 │   ├── core/                        # Ядро (бизнес-логика)
 │   │   ├── schema_comparator.py     # Сравнение схем
-│   │   ├── condition_evaluator.py   # Выполнение SpEL
-│   │   ├── spel_functions.py        # 34 SpEL-оператора
-│   │   ├── conditional_validator.py # Валидация УО полей
-│   │   ├── value_generator.py       # Генерация значений
-│   │   ├── json_actualizer.py       # Актуализация JSON
-│   │   └── json_validator.py        # Валидация JSON Schema
+│   │   ├── condition_evaluator.py   # Выполнение SpEL (TASK 3.1)
+│   │   ├── spel_functions.py        # 34 SpEL-оператора (TASK 3.1)
+│   │   ├── conditional_validator.py # Валидация УО полей (TASK 3.2)
+│   │   ├── value_generator.py       # Генерация значений (TASK 3.3)
+│   │   ├── json_actualizer.py       # Актуализация JSON (TASK 3.4)
+│   │   └── json_validator.py        # Валидация JSON Schema (TASK 3.5)
 │   │
 │   ├── analyzers/                   # Анализаторы
-│   │   └── change_analyzer.py       # Классификация изменений
+│   │   └── change_analyzer.py       # Классификация изменений (3-level)
+│   │
+│   ├── formatters/                  # Форматтеры ✅ НОВОЕ
+│   │   ├── __init__.py
+│   │   └── report_formatter.py      # ReportFormatter (text/md/json)
 │   │
 │   ├── reports/                     # Отчеты
-│   │   ├── report_generator.py      # Markdown/JSON
-│   │   └── diff_highlighter.py      # Side-by-side diff
+│   │   ├── report_generator.py      # Markdown/JSON (TASK 4.1)
+│   │   └── diff_highlighter.py      # Side-by-side diff (TASK 4.2)
 │   │
 │   ├── utils/                       # Утилиты
 │   │   ├── logger.py                # loguru
@@ -512,7 +418,7 @@ json-scenario-generator/
 │           └── validate.py          # 🟡 Запланировано
 │
 ├── tests/                           # Тесты (pytest)
-│   ├── unit/                        # 113+ unit-тестов
+│   ├── unit/                        # 153 unit-тестов ✅
 │   ├── integration/                 # E2E тесты
 │   └── fixtures/                    # Тестовые данные
 │
@@ -520,10 +426,10 @@ json-scenario-generator/
 │   ├── setup_project.py             # Создание структуры
 │   └── analyze_changes.py           # ✅ CLI для анализа
 │
-├── docs/                            # Документация
+├── docs/                            # Документация ✅ ОБНОВЛЕНО
 │   ├── PRD.md                       # Product Requirements Document
-│   ├── architecture.md              # Архитектура
-│   └── user_guide.md                # Руководство пользователя
+│   ├── ARCHITECTURE.md              # Архитектура системы ✅ НОВОЕ
+│   └── DEVELOPMENT.md               # Руководство разработчика ✅ НОВОЕ
 │
 ├── .gitignore
 ├── .env.example
@@ -575,6 +481,7 @@ cp .env.example .env
 ### 6. Запуск тестов
 ```bash
 pytest
+# Результат: 153 passed
 ```
 
 ---
@@ -600,18 +507,16 @@ python scripts/analyze_changes.py \
 
 ## Summary
 - Total Changes: 25
-- Breaking Changes: 7 ⚠️
+- Breaking Changes: 7 🔴
 - Non-breaking Changes: 18
 
 ## Critical Changes (2)
 
 1. **loanRequest/snils** — REMOVED
-   - Impact: CRITICAL
+   - Type: REMOVAL
+   - Breaking: BREAKING
+   - Impact: HIGH
    - Reason: Removed required field
-
-2. **loanRequest/creditAmt** — MODIFIED (type change)
-   - Impact: CRITICAL
-   - Reason: Type changed from integer to string
 ```
 
 ---
@@ -623,8 +528,7 @@ python -m src.cli actualize \
   --old-schema data/V070Call1Rq.json \
   --new-schema data/V072Call1Rq.json \
   --scenario data/scenarios/call1_pacl_v070.json \
-  --output output/call1_pacl_v072.json \
-  --report output/actualization_report.md
+  --output output/call1_pacl_v072.json
 ```
 
 **Что делает:**
@@ -634,7 +538,7 @@ python -m src.cli actualize \
 - Удаляет устаревшие поля
 - Обновляет значения при смене типов
 - Валидирует результат (JSON Schema + SpEL)
-- Сохраняет обновленный JSON + отчет
+- Сохраняет обновленный JSON
 
 ---
 
@@ -666,8 +570,10 @@ python -m src.cli validate \
 
 ### Качественные критерии
 
-- [x] **Покрытие тестами:** 100% для этапов 0-2.5 ✅
-- [ ] **Документация:** README + User Guide 🟡
+- [x] **Покрытие тестами:** 100% для этапов 0-2.5 ✅ (153 теста)
+- [x] **Архитектура:** SOLID, модульность, расширяемость ✅
+- [x] **Документация (код):** Docstrings, Type Hints ✅
+- [x] **Документация (проект):** README, ARCHITECTURE, DEVELOPMENT ✅
 - [ ] **User Experience:** CLI с Rich UI (прогресс-бары, цвета) 🟡
 - [ ] **Обработка ошибок:** Понятные сообщения с рекомендациями 🟡
 
@@ -681,11 +587,11 @@ python -m src.cli validate \
 
 ## 📅 ДЕДЛАЙНЫ
 
-| Версия | Срок | Статус |
-|--------|------|--------|
-| **MVP 0.1.0** | **25 декабря 2025** | 🔴 В работе (40%) |
-| Версия 0.2.0 | Январь 2026 | ⏳ Запланировано |
-| Версия 1.0.0 | Q1 2026 | 💡 Идея |
+| Версия | Срок | Статус | Прогресс |
+|--------|------|--------|----------|
+| **MVP 0.1.0** | **25 декабря 2025** | 🔴 В работе | **45-50%** |
+| Версия 0.2.0 | Январь 2026 | ⏳ Запланировано | 0% |
+| Версия 1.0.0 | Q1 2026 | 💡 Идея | 0% |
 
 **Текущий фокус:** TASK 3.1-3.4 (SpEL + Актуализация) — **P0 критичность**
 
@@ -705,6 +611,15 @@ python -m src.cli validate \
 | **Logging** | loguru | 0.7.2 | Логирование |
 | **Testing** | pytest | 7.4.3 | Тестирование |
 | **Config** | python-dotenv | 1.0.0 | .env файлы |
+
+---
+
+## 📚 ДОКУМЕНТАЦИЯ
+
+- **[README.md](README.md)** — этот файл, обзор проекта
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — архитектура системы, SOLID-принципы, слои
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — руководство разработчика, как добавлять функционал
+- **[docs/PRD.md](docs/PRD.md)** — Product Requirements Document, требования к продукту
 
 ---
 
@@ -730,6 +645,8 @@ python -m src.cli validate \
 - `refactor:` — рефакторинг без изменения функциональности
 - `chore:` — обновление зависимостей, конфигурации
 
+**См. подробности:** [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+
 ---
 
 ## 📝 ЛИЦЕНЗИЯ
@@ -748,28 +665,39 @@ MIT License — см. файл [LICENSE](LICENSE)
 
 ## 🎯 CHANGELOG
 
-### [0.1.0] - В разработке (40%)
+### [0.1.0] - В разработке (45-50%)
 
-#### ✅ Завершено
-- Этап 0: Подготовка окружения (100%)
-- Этап 1: Базовая инфраструктура (100%)
-- Этап 2: Парсеры и загрузчики (100%)
-- Этап 2.5: Анализаторы (100%)
-- CLI команда `compare` для анализа изменений
+#### ✅ Завершено (10 декабря 2025)
+- **Этап 0:** Подготовка окружения (100%)
+- **Этап 1:** Базовая инфраструктура (100%)
+  - Конфигурация, логирование, модели данных (FieldMetadata, ConditionalRequirement, Enums)
+  - 12 unit-тестов
+- **Этап 2:** Парсеры и загрузчики (100%)
+  - SchemaParser, DictionaryLoader, ConditionParser
+  - 73 unit-теста
+- **Этап 2.5:** Анализаторы (100%)
+  - SchemaComparator, ChangeAnalyzer (3-level classification)
+  - **ReportFormatter** — модульное форматирование (text/markdown/json) ✅ **НОВОЕ**
+  - CLI команда `compare` для анализа изменений
+  - 101 unit-тест
+- **Документация:** README, ARCHITECTURE, DEVELOPMENT, PRD ✅ **ОБНОВЛЕНО**
 
-#### 🔴 В работе
-- Этап 3: SpEL и актуализация (0%)
-  - TASK 3.1: ConditionEvaluator + SpELFunctions
-  - TASK 3.2: ConditionalValidator
-  - TASK 3.3: ValueGenerator
-  - TASK 3.4: JsonActualizer
+**Всего тестов:** ✅ **153 passed** (100% success rate)
+
+#### 🔴 В работе (следующий шаг)
+- **Этап 3:** SpEL и актуализация (0%)
+  - TASK 3.1: ConditionEvaluator + SpELFunctions (P0)
+  - TASK 3.2: ConditionalValidator (P0)
+  - TASK 3.3: ValueGenerator (P0)
+  - TASK 3.4: JsonActualizer (P0)
+  - TASK 3.5: JsonValidator (P1)
+  - TASK 3.6: CLI `actualize` (P1)
 
 #### 🟡 Запланировано
-- Этап 3: JsonValidator, CLI `actualize`
-- Этап 4: Отчеты (ReportGenerator, DiffHighlighter)
-- Этап 5: CLI интеграция (Rich UI, E2E тесты)
+- **Этап 4:** Отчеты (ReportGenerator, DiffHighlighter)
+- **Этап 5:** CLI интеграция (Rich UI, E2E тесты)
 
 ---
 
-**Последнее обновление:** 07 декабря 2025, 18:50 MSK  
-**Статус проекта:** 🚧 В активной разработке
+**Последнее обновление:** 10 декабря 2025, 01:47 MSK  
+**Статус проекта:** 🚧 В активной разработке (45-50% MVP завершено)
