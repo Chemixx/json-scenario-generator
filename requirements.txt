@@ -1,26 +1,21 @@
-# Core dependencies
-openpyxl==3.1.2              # Для работы с Excel
-pandas==2.2.0                # Для работы с данными
-jsonschema==4.20.0           # Для валидации JSON Schema
-Faker==22.0.0                # Для генерации тестовых данных
+# ===== Core Dependencies =====
+jsonschema==4.20.0       # JSON Schema validation
+openpyxl==3.1.2          # Excel reading (.xlsx)
+pandas==2.2.0            # Tabular data manipulation
+pyparsing==3.1.1         # SpEL parsing grammar
 
-# CLI
-click==8.1.7                 # Для создания CLI
-rich==13.7.0                 # Для красивого CLI UI
+# ===== Testing & Data Generation =====
+Faker==22.0.0            # Fake data generation
 
-# Utils
-python-dotenv==1.0.0         # Для работы с .env файлами
-pyyaml==6.0.1                # Для работы с YAML
+# ===== CLI & UX =====
+click==8.1.7             # CLI framework
+rich==13.7.0             # Rich terminal UI
 
-# Testing
-pytest==7.4.3
-pytest-cov==4.1.0
-pytest-mock==3.12.0
+# ===== Logging =====
+loguru==0.7.2            # Advanced logging
 
-# Code quality
-black==23.12.1               # Форматирование кода
-flake8==7.0.0                # Линтер
-mypy==1.8.0                  # Проверка типов
+# ===== Configuration =====
+python-dotenv==1.0.0     # .env file loading
 
-# Logging
-loguru==0.7.2                # Удобное логирование
+# ===== Type Hints (Python 3.8+) =====
+typing-extensions==4.9.0  # TypedDict, Protocol for Python 3.8-3.11

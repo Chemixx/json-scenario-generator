@@ -1,59 +1,54 @@
 """
-Core module for json-scenario-generator.
-Содержит базовые компоненты: парсеры, компараторы, SpEL-движок.
+Core module для json-scenario-generator.
+
+Экспортирует основные классы и функции для работы с:
+- JSON Schema парсингом и валидацией
+- SpEL-выражениями
+- Условными требованиями
+- Сравнением версий схем
 """
 
-from .schema_comparator import SchemaComparator
-from .spel_ast import (
-    ASTNode,
-    LiteralNode,
-    FieldNode,
-    ParentNNode,
-    RootNode,
-    UnaryOpNode,
-    BinaryOpNode,
-    NaryOpNode,
-    CallMethodNode,
-    FilterNode,
-    MapNode,
-    AnyMatchNode,
+from src.core.schema_comparator import SchemaComparator
+from src.core.spel_ast import (
     AllMatchNode,
-    NoneMatchNode,
+    AnyMatchNode,
+    ASTNode,
+    BinaryOpNode,
+    FilterNode,
     HasSizeNode,
+    LiteralNode,
+    VariableNode,
+    FunctionCallNode,
     NodeType,
-    SpELNode,
+    MapNode,
+    NoneMatchNode,
+    UnaryOpNode,
 )
-from .spel_parser import SpelParser, get_spel_parser
-from .spel_functions import SpelFunctions, spel_functions
+from src.core.spel_context import SpelContext
+from src.core.spel_evaluator import SpelEvaluator
+from src.core.spel_parser import SpelParser
+from src.core.spel_transpiler import SpelTranspiler
 
 __all__ = [
-    # Schema Comparator
-    'SchemaComparator',
-
-    # SpEL AST
-    'ASTNode',
-    'LiteralNode',
-    'FieldNode',
-    'ParentNNode',
-    'RootNode',
-    'UnaryOpNode',
-    'BinaryOpNode',
-    'NaryOpNode',
-    'CallMethodNode',
-    'FilterNode',
-    'MapNode',
-    'AnyMatchNode',
-    'AllMatchNode',
-    'NoneMatchNode',
-    'HasSizeNode',
-    'NodeType',
-    'SpELNode',
-
-    # SpEL Parser
-    'SpelParser',
-    'get_spel_parser',
-
-    # SpEL Functions
-    'SpelFunctions',
-    'spel_functions',
+    # SchemaComparator
+    "SchemaComparator",
+    # SpEL AST nodes
+    "ASTNode",
+    "LiteralNode",
+    "UnaryOpNode",
+    "BinaryOpNode",
+    "FilterNode",
+    "MapNode",
+    "AnyMatchNode",
+    "AllMatchNode",
+    "NoneMatchNode",
+    "HasSizeNode",
+    "VariableNode",
+    "FunctionCallNode",
+    "NodeType",
+    # SpEL components
+    "SpelContext",
+    "SpelEvaluator",
+    "SpelParser",
+    "SpelTranspiler",
 ]
