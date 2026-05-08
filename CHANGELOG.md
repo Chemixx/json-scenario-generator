@@ -1,0 +1,213 @@
+# Changelog
+
+Все значимые изменения этого проекта будут задокументированы в этом файле.
+
+Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
+этот проект придерживается [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [Unreleased]
+
+### ✅ Завершено (Этап 5 — ConditionalValidator + полная поддержка SpEL)
+
+**Инфраструктура** ✅
+- Исправлен pandas leak: `src/utils/__init__.py` не импортирует `excel_utils` автоматически
+- Установлен `pyparsing==3.1.1` для Python 3.14
+- **247 unit-тестов проходят** (было 173)
+
+**SpelAST** ✅ завершён
+- 52 NodeType в `src/core/spel_ast.py`
+- 13 основных AST-узлов: LiteralNode, FieldNode, ParentNNode, RootNode, UnaryOpNode, BinaryOpNode, NaryOpNode, CallMethodNode, FilterNode, MapNode, AnyMatchNode, AllMatchNode, NoneMatchNode, HasSizeNode
+- Вспомогательные функции: `create_and()`, `create_or()`, `create_eq()`, `create_in()`, `create_is_null()`, etc.
+
+**SpelParser** ✅ завершён (полная поддержка SpEL V72-V74)
+- Парсер на pyparsing в `src/core/spel_parser.py`
+- **Все 34+ базовых оператора:**
+  - Логика: `and`, `or`, `not`
+  - Сравнения: `eq`, `ne`, `lt`, `le`, `gt`, `ge`
+  - Null-проверки: `isNull`, `notNull`, `isBlank`, `notBlank`
+  - Принадлежность: `in`, `notIn`
+  - Строки: `length`, `matches`, `startsWith`, `endsWith`, `contains`
+  - Массивы: `anyMatch`, `allMatch`, `noneMatch`, `filter`, `map`, `hasSize`, `size`, `notEmptyList`, `containsAll`
+  - Даты: `currentDate`, `toLocalDate`, `minusYears`, `minusDays`, `isAfter`, `compareTo`
+  - Бизнес: `isValidTaxNum`, `isValidUuid`, `digitsCheck`, `isDictionaryValue`
+  - Навигация: `#this.field`, `#parent.field`, `#rootBean.field`
+- Поддержка строк в одинарных кавычках
+- Вызов методов: `call(target, methodName, args...)`
+
+**SpelFunctions** ✅ завершён (34/34 функции)
+- Все функции реализованы в `src/core/spel_functions.py`:
+  - **Date API (6):** current_date, to_local_date, minus_years, minus_days, is_after, compare_to
+  - **String API (5):** length, matches, startsWith, endsWith, contains
+  - **Бизнес-функции (4):** is_valid_tax_num, is_valid_uuid, digits_check, is_dictionary_value
+  - **Операторы сравнения (6):** eq, ne, lt, le, gt, ge
+  - **Логические (3):** and, or, not
+  - **Навигация (5):** this, parent, parent2, parent3, root
+  - **Коллекции (8):** filter, map, anyMatch, allMatch, noneMatch, hasSize, size, notEmptyList, containsAll
+  - **Даты (4):** currentDateTime, toDateTime, plusYears, plusDays, isBefore, isBetween
+
+**ConditionEvaluator** ✅ завершён (полный)
+- Выполнение SpEL AST на JSON-данных в `src/core/condition_evaluator.py`
+- EvaluationContext: root_data, current_value, parent_stack
+- **Все операторы поддерживаются:**
+  - Литералы: числа, строки, boolean, null
+  - Поля: this, parent, parent2-parent3, rootBean.field
+  - Логика: and, or, not (короткое замыкание)
+  - Сравнения: eq, ne, lt, le, gt, ge
+  - Null-проверки: isNull, notNull, isBlank, notBlank
+  - Принадлежность: in, notIn
+  - Массивы: anyMatch, allMatch, noneMatch, filter, map, hasSize
+  - Даты: currentDate, toLocalDate, minusYears, minusDays, isAfter, compareTo
+  - Бизнес: isValidTaxNum, isValidUuid, digitsCheck, isDictionaryValue
+  - Вызов методов: Date API, String API, бизнес-функции через SpelFunctions
+- **38 unit-тестов** в `tests/unit/core/test_condition_evaluator.py` (100% проходят)
+
+**ConditionalValidator** ✅ завершён
+- Валидация условно-обязательных полей (УО) в `src/core/conditional_validator.py`
+- Интеграция с ConditionEvaluator для проверки SpEL-условий
+- Проверка обязательных (О) и условно обязательных (УО) полей
+- **36 unit-тестов** в `tests/unit/core/test_conditional_validator.py` (100% проходят)
+
+**ValueGenerator** 🔴 Ожидает реализации (Этап 6)
+- Генерация валидных значений для новых полей
+- Поддержка: Faker, справочники, UUID-кэш, ИНН, СНИЛС
+
+**JsonActualizer** 🔴 Ожидает реализации (Этап 7)
+- Применение SchemaDiff к JSON-сценариям
+- Добавление, удаление, преобразование полей
+
+**JsonValidator** 🔴 Ожидает реализации (Этап 8)
+- Двойная валидация: JSON Schema Draft 2019-09 + SpEL-условия
+
+
+### 📋 Запланировано
+
+**Этап 4: Отчёты**
+- `ReportGenerator` — расширенные Markdown-отчёты с рекомендациями по миграции
+- `DiffHighlighter` — side-by-side diff для JSON с ANSI-цветами
+
+**Этап 5: CLI интеграция**
+- Rich UI (прогресс-бары, цветные таблицы)
+- Команда `actualize` CLI
+- Команда `validate` CLI
+- E2E тесты
+
+**v0.2.0: Генератор сценариев**
+- `ScenarioGenerator` — генерация min/max сценариев с нуля
+- `CallMappingLoader` — загрузка Лист 19 Excel
+- Комбинаторика: productCd × loanTypeCd × channelCd
+- CLI: `generate --schema V072.json --product 10410001 --type min`
+
+**v1.0.0: Конфигуратор**
+- YAML-конфигурация сценариев
+- Интерактивный CLI (Rich library)
+- Web UI (FastAPI + React) — опционально
+- Версионные атрибуты (доступные поля по версиям)
+
+### 🐛 Известные проблемы
+
+| # | Проблема | Серьёзность | Статус |
+|---|----------|-------------|--------|
+| TD-7 | Устаревшие ссылки в документации | 🟠 Высокая | ✅ Исправлено (08.05.2026) |
+| TD-8 | `src/utils/json_utils.py` использует `Draft7Validator` вместо `Draft201909Validator` | 🟡 Средняя | Требуется замена |
+| TD-9 | Нет интеграционных тестов (только unit-тесты) | 🟡 Средняя | Добавить E2E |
+| TD-10 | Нет test fixtures | 🟡 Низкая | Добавить fixtures |
+| TD-11 | Backup files в репо (.backup) | 🟡 Низкая | Удалить |
+| TD-12 | Deprecated code в src/ | 🟡 Низкая | Переместить/удалить |
+
+---
+
+## [0.1.0-dev] — 2025-12-10 (последний релиз)
+
+### ✅ Добавлено
+
+#### Этап 0: Подготовка (100%)
+- Виртуальное окружение Python 3.12+
+- Зависимости: `requirements.txt` (runtime), `requirements-dev.txt` (development)
+- Структура проекта через `scripts/setup_project.py`
+- Git конфигурация, `.gitignore`, `.env.example`
+
+#### Этап 1: Базовая инфраструктура (100%)
+- **`config/settings.py`** — AppConfig с путями к `data/`, `output/`, `logs/`, загрузка `.env`
+- **`src/utils/logger.py`** — loguru с консольным и файловым выводом, ротация 10 MB, хранение 30 дней, декораторы логирования, context manager
+- **Модели данных** (`src/models/`):
+  - 11 dataclass + 4 enum
+  - `VersionInfo`, `VersionStatus` — информация о версиях схем
+  - `FieldMetadata`, `ConditionalRequirement` — метаданные полей и SpEL-условия
+  - `FieldChange`, `SchemaDiff` — изменения между схемами
+  - `AnalyzedChange`, `AnalysisResult` — классифицированные изменения
+  - `DictionaryEntry`, `Dictionary` — справочники допустимых значений
+  - `Scenario`, `ScenarioMetadata` — JSON-сценарии
+  - Enums: `ChangeType`, `BreakingLevel`, `ImpactLevel`, `FieldElementType`
+- **12 unit-тестов** для моделей
+
+#### Этап 2: Парсеры и загрузчики (100%)
+- **`src/parsers/schema_parser.py`** — парсинг JSON Schema Draft 2019-09, рекурсивный обход, извлечение метаданных, обработка `condition` (строка или объект)
+- **`src/loaders/dictionary_loader.py`** — загрузка Excel-справочников (.xlsx), поддержка классического и группового форматов, кэширование
+- **31 unit-тест** (12 SchemaParser + 19 DictionaryLoader)
+
+#### Этап 2.5: Анализаторы (100%)
+- **`src/core/schema_comparator.py`** — сравнение двух JSON Schema, детальный разбор изменений constraints, определение added/removed/modified полей
+- **`src/analyzers/change_analyzer.py`** — 3-уровневая классификация:
+  - **ChangeType**: ADDITION / REMOVAL / MODIFICATION (что произошло)
+  - **BreakingLevel**: BREAKING / NON_BREAKING (ломает API или нет)
+  - **ImpactLevel**: CRITICAL / HIGH / MEDIUM / LOW (критичность для бизнеса)
+  - Генерация рекомендаций для каждого изменения
+- **`src/formatters/report_formatter.py`** — модульное форматирование отчётов:
+  - `format_text()` — консольный вывод с эмодзи
+  - `format_markdown()` — GitHub-friendly Markdown
+  - `format_json()` — структурированный JSON для API/интеграций
+- **`scripts/analyze_changes.py`** — CLI для анализа изменений (version-agnostic: любые версии схем)
+  - Аргументы: `old_schema`, `new_schema`, `-o/--output`, `--format`, `--only-critical`, `--only-breaking`, `--verbose`
+  - Exit codes: 0 (успех), 1 (критические изменения), 2 (ошибка)
+- **101 unit-тест** (20 SchemaComparator + 69 ChangeAnalyzer + 12 ReportFormatter)
+
+### 📊 Статистика v0.1.0-dev
+
+| Метрика | Значение |
+|---------|----------|
+| **Файлов .py** | 60 |
+| **Unit-тестов задекларировано** | 250+ |
+| **Unit-тестов проходит** | **247 (100%)** |
+| **Этапов завершено** | 5 из 10 (Этапы 0–5 завершены) |
+| **Общий прогресс MVP** | ~75–80% |
+| **Покрытие (этапы 0–2.5)** | 100% |
+| **Покрытие (SpEL)** | 100% (AST ✅, Parser ✅, Evaluator ✅, Functions ✅, Validator ✅) |
+| **SpEL-операторов поддержано** | **34 из 34 (100%)** |
+| **SpelAST узлов** | 52 NodeType ✅ |
+| **ConditionEvaluator тестов** | 38 ✅ |
+| **ConditionalValidator тестов** | 36 ✅ |
+
+---
+
+## Хронология разработки
+
+| Дата | Событие |
+|------|---------|
+| Ноябрь 2025 | Начало проекта, Этап 0 (подготовка окружения) |
+| Ноябрь 2025 | Этап 1: базовая инфраструктура (модели, конфигурация, логирование) |
+| Начало декабря 2025 | Этап 2: парсеры и загрузчики (SchemaParser, DictionaryLoader) |
+| 7 декабря 2025 | Создание PRD v1.0 |
+| 10 декабря 2025 | Этап 2.5 завершён: анализаторы (SchemaComparator, ChangeAnalyzer, ReportFormatter), CLI, 153 теста |
+| 10 декабря 2025 | Обновление PRD v2.0: генерация перенесена в v0.2.0, фокус на актуализацию |
+| Декабрь 2025 — Апрель 2026 | Пауза в разработке |
+| 14 апреля 2026 | Возобновление разработки: создание SPECIFICATION.md (2700 строк), актуализация документации, фиксация известных проблем |
+| 7 мая 2026 | Этап 3 часть 1 завершена: ConditionEvaluator ✅, 38 тестов ✅, инфраструктура ✅ |
+| **7 мая 2026** | **Этап 5 завершён: ConditionalValidator ✅ (36 тестов), SpelParser ✅ (34/34 оператора), SpelFunctions ✅ (34/34 функции), 247 тестов проходят** |
+
+---
+
+## Ссылки
+
+- [SPECIFICATION.md](docs/SPECIFICATION.md) — полная спецификация (~2700 строк)
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — архитектура системы
+- [DEVELOPMENT.md](docs/DEVELOPMENT.md) — руководство разработчика
+- [PRD.md](docs/PRD.md) — требования к продукту
+- [README.md](README.md) — обзор проекта
+
+---
+
+<p align="center">
+  <sub>Последнее обновление: 08 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 6 в работе (~75-80% MVP)</sub>
+</p>
