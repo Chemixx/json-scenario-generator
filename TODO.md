@@ -1,8 +1,8 @@
 # TODO: json-scenario-generator
 
-**Последнее обновление:** 2026-05-08  
+**Последнее обновление:** 2026-05-14  
 **Прогресс MVP:** 75-80%  
-**Тестов:** 247 passed (100%)  
+**Тестов:** 281 passed (100%)  
 **Релиз v0.1.0:** В работе  
 **TD-7:** ✅ Исправлено (устаревшие ссылки в документации обновлены)
 
@@ -54,12 +54,16 @@ ConditionEvaluator ✅ → ConditionalValidator ✅ → ValueGenerator (P0) → 
 - `tests/unit/core/test_value_generator.py`
 
 **Требования:**
-- [ ] Генерация значений для типов: string, integer, number, boolean, array, object
-- [ ] Кэширование UUID (одно значение на сценарий)
-- [ ] Интеграция с Faker для реалистичных данных
-- [ ] Форматирование: даты, ИНН, UUID, телефоны, СНИЛС
-- [ ] Поддержка справочников (DictionaryLoader)
-- [ ] 30+ unit-тестов
+- [x] Генерация значений для leaf-типов: string, integer, number, boolean, array (object — OUT OF SCOPE)
+- [x] UUID-кэширование: external `Dict[str, str]` в `GeneratorConfig` (по `field_name`), stateless
+- [x] Интеграция с Faker (два режима: готовый объект или создание из `locale`)
+- [x] Форматирование: даты (`date`/`date-time`), ИНН 10/12 с КС ФНС, UUID, телефон (`7` + 10 цифр), СНИЛС (11 цифр без КС)
+- [x] Поддержка справочников (DictionaryLoader)
+- [x] Array-генерация: `max(minItems, default_array_size)` элементов, рекурсивно по `items`
+- [x] Constraints: minLength, maxLength, minimum, maximum, pattern, enum
+- [x] 34 unit-теста, покрытие 94%
+- [ ] Placeholder-режим — отложено (нет бизнес-кейса)
+- [ ] Object-рекурсия — отложено (обязанность JsonActualizer/ScenarioGenerator)
 
 **Оценка:** 2 дня
 
@@ -182,7 +186,7 @@ ConditionEvaluator ✅ → ConditionalValidator ✅ → ValueGenerator (P0) → 
 | # | Проблема | Файлы | Действие |
 |---|----------|-------|----------|
 | TD-7 | **Устаревшие ссылки в документации** | `docs/ARCHITECTURE.md`, `docs/PRD.md`, `CHANGELOG.md`, `TODO.md` | ✅ **ИСПРАВЛЕНО** (08.05.2026) |
-| TD-8 | **Wrong JSON Schema Draft** | `src/utils/json_utils.py:11, 165` | Исправить Draft7 → Draft 2019-09 |
+| TD-8 | **Wrong JSON Schema Draft** | `src/utils/json_utils.py:11, 165` | ✅ **ИСПРАВЛЕНО** (Draft7 → Draft 2019-09, 11.05.2026) |
 
 ### Средний приоритет (🟡)
 
@@ -228,7 +232,7 @@ src/
 │   └── report_formatter.py  ✅ text/markdown/json
 ├── utils/
 │   ├── logger.py            ✅
-│   ├── json_utils.py        ⚠️ Draft7 bug
+│   ├── json_utils.py        ✅ Draft 2019-09
 │   └── excel_utils.py       ✅
 ├── cli/                     🔴 Пусто
 │   ├── commands/            🔴 Пусто
@@ -281,6 +285,83 @@ graph TD
 
 ---
 
+## 📋 Анализ документов для ValueGenerator (2026-05-13)
+
+> На основе анализа `front-adapter v.17.7.docx`, `Приложение_1_параметры_для_front_adapter_v_17_7.xlsx` и папки `data/scenarios/`.
+
+### 1. Placeholder-ы в сценариях (Postman-артефакты) — OUT OF SCOPE
+Рабочие JSON содержат шаблоны — это **артефакты Postman-коллекций**, использовались для рандомизации и обеспечения уникальности данных в рамках сквозной заявки (Call0 → CallN → CallResult).
+
+- `{{number}}...` — UUID/идентификаторы (`loanRequestExtId`, `customerRequestExtId`, `pledgeExtId`)
+- `{{randomDocNum}}` — номера документов (`docNum`, `valueNum`)
+- `{{randomString}}` — произвольные строки (`thirdNm`)
+- `{{errorId}}` — ID ошибок
+
+**Решение:** Placeholder-режим отложен. Нет бизнес-кейса сейчас. Если понадобится — добавим в ScenarioGenerator или JsonActualizer.
+
+### 2. UUID — кэширование между Call-ами обязательно
+Идентификаторы заявки повторяются в разных JSON:
+- `loanRequestExtId`, `customerRequestExtId`, `creditHistoryBureauExtId`
+- `tessaAppDossierId`, `pledgeExtId`, `contentStoreDataExtId`
+- **Механизм:** external `Dict[str, str]` в `GeneratorConfig.uuid_cache` (ключ = `field_name`). ValueGenerator stateless — читает/пишет в переданный dict. ScenarioGenerator создаёт один кэш на заявку и передаёт при каждом вызове.
+
+### 3. Справочники — доминирующий тип данных
+Большинство полей с суффиксом `CdExt` содержат числовые коды из справочников:
+- `productCdExt = 10410032` (PRODUCT_TYPE)
+- `channelCdExt = 10620009` (CHANNEL)
+- `creditProgramCdExt = 10320007` (CREDIT_PROGRAM)
+- `currencyCdExt = 10110118` (CURRENCY)
+- `loanTypeCdExt = 10090001`
+- `docTypeCdExt`, `docSubTypeCdExt`, `addressTypeCdExt`, `contactTypeCdExt`, `consentTypeCdExt`, `flagCdExt`
+
+### 4. Специальные форматы (из реальных сценариев)
+| Формат | Пример | Требование |
+|--------|--------|------------|
+| ИНН (10 цифр) | `7830112296` | Алгоритм ФНС с КС (`strict_inn=True`)
+| ИНН (12 цифр) | `363424544165` | Юр. лицо / работодатель с КС |
+| СНИЛС | `10300026` (8 цифр в JSON) | 11 цифр без КС — Java-валидатор не проверяет КС (`strict_snils=False`)
+| Телефон | `79154758060` | 11 цифр, начинается с `7` (Java-валидатор не проверяет regex)
+| Банк. счёт | `40816810800009847389` | 20 цифр |
+| БИК | `442345678` | 9 цифр |
+| Дата | `2020-05-26` | `YYYY-MM-DD` |
+| Datetime | `2024-01-01T10:27:11.17` | ISO 8601 с миллисекундами |
+| UUID | `3690ee8d-68a3-473c-ac58-802516011111` | Стандартный формат |
+
+### 5. Типы данных из XLSX (лист «Типы данных»)
+| Тип в сообщении | JSON Schema эквивалент | Формат |
+|-----------------|-----------------------|--------|
+| `string(36)` | `string` + `format: uuid` | UUID |
+| `string(N<>36)` | `string` + `maxLength: N` | Обычная строка |
+| `datetime` | `string` + `format: date-time` | `YYYY-MM-DDTHH:MM:SS.sss` |
+| `date` | `string` + `format: date` | `YYYY-MM-DD` |
+| `number(10,0)` | `integer` / `number` | Целочисленный код |
+| `number(23,5)` | `number` | Суммы с 5 знаками после запятой |
+| `number` | `number` / `integer` | Зависит от контекста |
+
+### 6. Массивы и вложенные объекты
+Обнаружено **15+ типов массивов**, каждый элемент — объект:
+- `customerForms[]`, `documents[]`, `addresses[]`, `contacts[]`
+- `customerFormIncomes[]`, `creditIssueIncomes[]`
+- `creditParameters[]`, `pledges[]`, `employees[]`
+- `consents[]`, `contentStoreData[]`, `liabilities[]`
+- `selectedProducts[]`, `insurances[]`, `additionalOptions[]`, `creditIssuanceResults[]`
+
+### 7. Битые JSON-сценарии
+7 из 16 файлов содержат синтаксические ошибки (все `*_prospect_spouse_seller_org_appraiser.json` + `call6_prospect...`).
+Вероятная причина: ручное копирование из Postman/блокнота.
+Перед использованием в автотестах требуется валидация JSON.
+
+### 8. Обязательность и версионирование
+XLSX содержит колонки обязательности для **8 разных версий/каналов**:
+- ВТБ-онлайн (сентябрь, ноябрь)
+- УЗ (июль, сентябрь, октябрь, февраль, март)
+- Ипотека (январь, февраль, март)
+- Ипотека_нестандарты (август)
+
+ValueGenerator должен принимать параметр **версии + канала** для фильтра полей.
+
+---
+
 ## 📝 Чек-лист перед релизом v0.1.0
 
 - [ ] ValueGenerator реализован и протестирован
@@ -288,7 +369,7 @@ graph TD
 - [ ] JsonValidator реализован и протестирован
 - [ ] CLI команды работают
 - [ ] Все интеграционные тесты проходят
-- [ ] Технический долг TD-7, TD-8 исправлен
+- [x] Технический долг TD-7, TD-8 исправлен
 - [ ] Документация обновлена
 - [ ] CHANGELOG.md актуализирован
 - [ ] Все 247 существующих тестов проходят
