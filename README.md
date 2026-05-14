@@ -1,548 +1,192 @@
-# 🏗️ JSON Scenario Generator
+# 🏦 JSON Scenario Generator
 
-**Версия:** 0.1.0 (MVP)  
-**Статус:** 🚧 В разработке (45-50% готовности)  
-**Цель:** Автоматизация актуализации JSON-сценариев при изменении версий JSON Schema кредитного конвейера
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Version](https://img.shields.io/badge/version-0.1.0--dev-orange.svg)]()
+[![Tests](https://img.shields.io/badge/tests-281%20passed-brightgreen.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-green.svg)]()
+[![Status](https://img.shields.io/badge/status-🚧%20in%20development-yellow.svg)]()
 
----
-
-## 📖 О ПРОЕКТЕ
-
-**JSON Scenario Generator** — CLI-инструмент для автоматизации работы с JSON-сценариями кредитного конвейера:
-
-### 🎯 Основные возможности (MVP 0.1.0)
-
-1. **Анализ изменений** ✅ **ГОТОВО**
-   - Сравнение двух произвольных версий JSON Schema (V050↔V100, v1.0↔v2.5, custom)
-   - 3-уровневая классификация: ChangeType (ЧТО) + BreakingLevel (API) + ImpactLevel (критичность)
-   - Определение breaking changes (удаление required полей, смена типов)
-   - Отчеты в форматах: text, markdown, json
-   - **ReportFormatter**: модульное форматирование отчетов
-
-2. **Актуализация JSON** 🔴 **В РАБОТЕ**
-   - Автоматическое обновление существующих JSON-сценариев под новую версию схемы
-   - Добавление новых обязательных полей с валидными значениями
-   - Удаление устаревших полей
-   - Обработка изменений типов и constraints
-   - Сохранение UUID-связей между Call0→Call1→Call2
-
-3. **Валидация JSON** 🟡 **ЗАПЛАНИРОВАНО**
-   - Проверка по JSON Schema Draft 2019-09
-   - Валидация conditionalRequirement (SpEL-условия, 34 оператора)
-   - Поддержка навигации: this.field, root.field, parent.field, field[0]
-
-### 🚀 Будущие версии
-
-- **v0.2.0** (опционально): Генерация новых тестовых сценариев с комбинаторикой продуктов
-- **v1.0.0** (идея): Конфигурируемая генерация через YAML, интерактивный CLI, Web UI
+> **CLI-инструмент для автоматизации актуализации JSON-сценариев** при изменении версий JSON Schema кредитного конвейера банка.
 
 ---
 
-## 📋 ROADMAP РАЗРАБОТКИ
+## 📖 О проекте
 
-### **ЭТАП 0: Подготовка окружения (1-2 часа)** ✅ **100%**
+Представьте: банк выпустил новую версию JSON Schema для кредитного конвейера (например, v0.70 → v0.72). Теперь **100+ тестовых JSON-сценариев** нужно вручную обновить — добавить новые поля, удалить устаревшие, исправить типы. Работа QA-инженера на **~3 дня**.
 
-- [x] **TASK 0.1**: Настройка виртуального окружения Python 3.12+
-- [x] **TASK 0.2**: Установка базовых зависимостей (requirements.txt)
-- [x] **TASK 0.3**: Создание структуры проекта (scripts/setup_project.py)
-- [x] **TASK 0.4**: Настройка Git, .gitignore, .env
+**JSON Scenario Generator** делает это автоматически за **~5 минут**.
 
----
+### Что делает инструмент
 
-### **ЭТАП 1: Базовая инфраструктура (2-3 дня)** ✅ **100%**
+| Задача | Что происходит | Результат |
+|--------|---------------|-----------|
+| 🔍 **Анализ изменений** | Сравнивает две версии JSON Schema, классифицирует каждое изменение по 3 уровням | Отчёт: что добавлено, удалено, изменено — с оценкой критичности |
+| 🔄 **Актуализация JSON** *(в разработке)* | Обновляет существующие JSON-сценарии под новую схему: добавляет поля, удаляет устаревшие, генерирует валидные значения | Готовый JSON, прошедший валидацию |
+| ✅ **Валидация JSON** *(запланировано)* | Проверяет сценарий по JSON Schema + SpEL-условиям (условно-обязательные поля) | Список ошибок с пояснениями |
 
-- [x] **TASK 1.1**: Модуль конфигурации (`config/settings.py`)
-  - AppConfig с путями к data/, output/, logs/
-  - Загрузка переменных окружения (.env)
-  - Автоматическое создание директорий
+### Для кого этот проект
 
-- [x] **TASK 1.2**: Модуль логирования (`src/utils/logger.py`)
-  - loguru с консольным и файловым выводом
-  - Ротация логов (10 MB), retention (30 дней)
-  - Цветной вывод для CLI
+- **QA-инженеры** — актуализация сотен сценариев без ручного труда
+- **Backend-разработчики** — быстрый анализ breaking changes между версиями API
+- **DevOps** — интеграция автоматической актуализации в CI/CD pipeline
+- **Бизнес-аналитики** — оценка влияния изменений схемы на процессы
+- **Новые члены команды** — понимание архитектуры через документацию
 
-- [x] **TASK 1.3**: Базовые модели данных (`src/models/`)
-  - **VersionInfo**: версия схемы (version-agnostic, авто-извлечение из schema/filename)
-  - **FieldMetadata**: метаданные поля (type, required, conditional, constraints, dictionary)
-  - **ConditionalRequirement**: SpEL-условие (expression, message, dqCode)
-  - **SchemaDiff**: разница между схемами (added_fields, removed_fields, modified_fields)
-  - **Dictionary**: справочник (код → наименование)
-  - **Enums**: ChangeType, BreakingLevel, ImpactLevel (3-level classification)
+### Ключевые термины
 
-- [x] **TASK 1.4**: Настройка юнит-тестов
-  - pytest.ini с покрытием кода (pytest-cov)
-  - conftest.py с фикстурами (sample_schema_v70, sample_schema_v72)
-  - Первые тесты: test_models.py (VersionInfo, FieldMetadata)
+<details>
+<summary><b>JSON Schema</b> — спецификация структуры JSON-документа</summary>
+Описывает, какие поля обязательны, какие значения допустимы, какие условия применяются. Проект использует <b>Draft 2019-09</b>.
+</details>
 
-**Статус:** ✅ Завершено (100% тестового покрытия, 12 тестов)
+<details>
+<summary><b>SpEL (Spring Expression Language)</b> — язык выражений для условий</summary>
+Используется для условно-обязательных полей (УО). Пример: <code>in(productCd, 10410001, 10410002)</code> — поле обязательно, только если продукт PACL или TOPUP. Поддерживается <b>34 оператора</b>.
+</details>
 
----
+<details>
+<summary><b>УО / О / Н</b> — статус обязательности поля</summary>
+<b>О</b> — всегда обязательное, <b>УО</b> — обязательно при условии (SpEL), <b>Н</b> — необязательное.
+</details>
 
-### **ЭТАП 2: Парсеры и загрузчики (3-5 дней)** ✅ **100%**
-
-- [x] **TASK 2.1**: Парсер JSON Schema (`src/parsers/schema_parser.py`)
-  - Парсинг JSON Schema Draft 2019-09 (любая версия)
-  - Извлечение FieldMetadata: type, required, constraints, condition
-  - Поддержка вложенных объектов (properties) и массивов (items)
-  - Обработка ConditionalRequirement из поля "condition"
-  - Определение isCollection для массивов
-  - **12 unit-тестов**
-
-- [x] **TASK 2.2**: Загрузчик справочников (`src/loaders/dictionary_loader.py`)
-  - Загрузка Excel-справочников (openpyxl)
-  - Парсинг: code (int), name (str), dictionary_type (str)
-  - Кэширование в памяти для производительности
-  - Валидация структуры Excel
-  - **19 unit-тестов**
-
-- [x] **TASK 2.3**: Парсер условий SpEL (`src/parsers/condition_parser.py`)
-  - Парсинг SpEL-выражений через pyparsing
-  - Построение AST-дерева для условий
-  - Поддержка 34 операторов: in, eq, and, or, not, isNull, anyMatch, allMatch...
-  - Обработка вложенных выражений: and(eq(a,1), or(eq(b,2), eq(c,3)))
-  - **42 unit-теста**
-
-- [ ] **TASK 2.4**: Загрузчик сводки по релизам ⏳ **ОТЛОЖЕНО**
-  - (Пока не критично, можно сделать в v0.2.0)
-
-**Статус:** ✅ Завершено (73 unit-теста, 100% pass rate)
+<details>
+<summary><b>Call (Call0/Call1/Call2)</b> — тип запроса в кредитном конвейере</summary>
+Каждый Call — JSON-запрос, валидируемый по своей схеме. Сценарии сохраняют UUID-связи между Call0 → Call1 → Call2.
+</details>
 
 ---
 
-### **ЭТАП 2.5: Анализаторы (5-7 дней)** ✅ **100%**
+## ⚡ Быстрый старт
 
-- [x] **TASK 2.5.1**: Компаратор схем (`src/core/schema_comparator.py`)
-  - Метод compare() → SchemaDiff
-  - Обнаружение: added_fields, removed_fields, modified_fields
-  - detect_field_changes() для детального сравнения constraints
-  - Анализ изменений ConditionalRequirement
-  - **20 unit-тестов**
+Установка и первый запуск за 5 минут:
 
-- [x] **TASK 2.5.2**: Анализатор изменений (`src/analyzers/change_analyzer.py`)
-  - **3-уровневая классификация:**
-    - **ChangeType**: ADDITION / REMOVAL / MODIFICATION (что произошло)
-    - **BreakingLevel**: BREAKING / NON_BREAKING (ломает API или нет)
-    - **ImpactLevel**: CRITICAL / HIGH / MEDIUM / LOW (насколько критично)
-  - Генерация рекомендаций для каждого изменения
-  - **69 unit-тестов**
-
-- [x] **TASK 2.5.3**: CLI-скрипт анализа (`scripts/analyze_changes.py`)
-  - Команда: `python scripts/analyze_changes.py --old V070.json --new V072.json`
-  - Форматы вывода: text, markdown, json
-  - Фильтры: --only-critical, --only-breaking
-  - Вербозный режим: --verbose
-
-- [x] **TASK 2.5.4**: Форматтер отчетов (`src/formatters/report_formatter.py`) ✅ **НОВОЕ!**
-  - **format_text()**: консольный формат с эмодзи, секциями, verbose
-  - **format_markdown()**: GitHub-friendly Markdown для CHANGELOG
-  - **format_json()**: JSON для API/интеграций с timestamp
-  - **Single Responsibility**: только форматирование, без анализа
-  - **Open/Closed**: легко добавить HTML/XML форматы
-  - **12 unit-тестов (100% покрытие)**
-
-**Статус:** ✅ Завершено (101 unit-тестов, 100% pass rate)
-
-**Пример использования:**
 ```bash
-python scripts/analyze_changes.py \
-  --old-schema data/V070Call1Rq.json \
-  --new-schema data/V072Call1Rq.json \
-  --format markdown \
-  --output reports/changes_070_to_072.md
-```
-
----
-
-### **ЭТАП 3: Ядро системы — SpEL и актуализация (10-14 дней)** 🔴 **0% (КРИТИЧНО)**
-
-#### **TASK 3.1**: ConditionEvaluator + SpELFunctions (4 дня) — **P0**
-
-**Описание:** Выполнение SpEL-выражений на JSON-данных для валидации conditionalRequirement
-
-**Компоненты:**
-- `src/core/condition_evaluator.py` — основной класс для выполнения условий
-- `src/core/spel_functions.py` — реализация 34 SpEL-операторов
-
-**Функциональность:**
-- Выполнение SpEL-выражений: `in(this.productCd, 10410001, 10410002)` → True/False
-- Навигация по JSON:
-  - `this.field` → текущий контекст
-  - `root.loanRequest.channelCd` → корень JSON
-  - `parent.createChannelCd` → родительский объект
-  - `field[0]` → элемент массива
-- Context stack для вложенных объектов
-
-**34 SpEL-оператора:**
-1. Сравнение: `in`, `notIn`, `eq`, `ne`
-2. Логика: `and`, `or`, `not`
-3. Null-проверки: `isNull`, `notNull`, `isBlank`, `notBlank`
-4. Коллекции: `anyMatch`, `allMatch`, `containsAll`
-5. Арифметика: `gt`, `lt`, `gte`, `lte`
-6. Строки: `matches`, `startsWith`, `endsWith`
-
-**Acceptance Criteria:**
-- [ ] Все 34 оператора реализованы и протестированы
-- [ ] Тесты для вложенных условий: `and(eq(a,1), or(eq(b,2), eq(c,3)))`
-- [ ] Тесты для навигации: `this.`, `root.`, `parent.`, `[index]`
-- [ ] 100% покрытие unit-тестами
-
----
-
-#### **TASK 3.2**: ConditionalValidator (1-2 дня) — **P0**
-
-**Описание:** Валидация условно-обязательных полей (УО) с помощью ConditionEvaluator
-
-**Компонент:** `src/core/conditional_validator.py`
-
-**Функциональность:**
-- Проверка условий для полей с `is_conditional=True`
-- Если условие выполнено (`true`) и значение `null` → ValidationError
-- Рекурсивный обход вложенных объектов и массивов
-- Возврат списка ошибок с путями, сообщениями и dqCode
-
-**Acceptance Criteria:**
-- [ ] Валидация всех conditional полей в схеме
-- [ ] Обработка вложенных массивов и объектов
-- [ ] Тесты для true/false условий
-- [ ] Тесты для сложных условий с `and`/`or`
-
----
-
-#### **TASK 3.3**: ValueGenerator (2-3 дня) — **P0**
-
-**Описание:** Генерация валидных значений для новых полей при актуализации
-
-**Компонент:** `src/core/value_generator.py`
-
-**Функциональность по типам полей:**
-- **string**: Faker (ru_RU) с учетом maxLength, pattern, format (email, date)
-- **integer/number**: random с учетом min/max/maxIntLength
-- **boolean**: True/False
-- **date/datetime**: текущие или случайные даты
-- **dictionary**: случайное значение из справочника по field.dictionary
-- **array**: массив размером DEFAULT_ARRAY_SIZE
-- **object**: рекурсивная генерация properties
-
-**Специальные генераторы:**
-- **UUID** (с кэшированием для связей): `loanRequestExtId`, `customerRequestExtId`
-- **ИНН** (10 цифр с контрольной суммой)
-- **СНИЛС** (11 цифр)
-
-**Acceptance Criteria:**
-- [ ] Генерация всех типов полей (string, int, bool, date, dict, array, object)
-- [ ] Учет всех constraints (maxLength, maximum, minimum, pattern, enum)
-- [ ] Специальные генераторы (UUID, ИНН, СНИЛС)
-- [ ] Кэширование UUID для связей между Call
-- [ ] 50+ unit-тестов
-
----
-
-#### **TASK 3.4**: JsonActualizer (3-4 дня) — **P0**
-
-**Описание:** Основной компонент актуализации — применение SchemaDiff к JSON
-
-**Компонент:** `src/core/json_actualizer.py`
-
-**Алгоритм:**
-1. **ADDED**: Добавление новых полей через ValueGenerator
-2. **REMOVED**: Удаление устаревших полей
-3. **MODIFIED**: Обработка изменений типов/constraints
-4. **Валидация** результата через ConditionalValidator
-
-**Acceptance Criteria:**
-- [ ] Обработка всех типов изменений (ADDED, REMOVED, MODIFIED)
-- [ ] Навигация по сложным путям (nested objects, arrays)
-- [ ] Сохранение UUID-связей между Call
-- [ ] Валидация результата
-- [ ] 30+ unit-тестов
-
----
-
-#### **TASK 3.5**: JsonValidator (2 дня) — **P1**
-
-**Описание:** Валидация JSON по JSON Schema + conditionalRequirement
-
-**Компонент:** `src/core/json_validator.py`
-
-**Функциональность:**
-- Стандартная валидация через `jsonschema.Draft7Validator`
-- Валидация conditionalRequirement через `ConditionalValidator`
-- Возврат: `(is_valid: bool, errors: List[str])`
-
-**Acceptance Criteria:**
-- [ ] Валидация всех constraint типов
-- [ ] Валидация conditionalRequirement (34 SpEL-оператора)
-- [ ] Понятные сообщения об ошибках с путями
-- [ ] 20+ unit-тестов
-
----
-
-#### **TASK 3.6**: CLI команда `actualize` (2 дня) — **P1**
-
-**Описание:** CLI-интерфейс для актуализации JSON-сценариев
-
-**Компонент:** `src/cli/commands/actualize.py`
-
-**Использование:**
-```bash
-python -m src.cli actualize \
-  --old-schema data/V070Call1Rq.json \
-  --new-schema data/V072Call1Rq.json \
-  --scenario data/scenarios/call1_pacl_v070.json \
-  --output output/call1_pacl_v072.json
-```
-
-**Acceptance Criteria:**
-- [ ] CLI работает с любыми версиями схем (version-agnostic)
-- [ ] Обработка ошибок с понятными сообщениями
-- [ ] Прогресс-бар для массовой обработки (Rich library)
-- [ ] Интеграционный тест end-to-end
-
-**Статус ЭТАПА 3:** 🔴 В работе (приоритет P0)
-
----
-
-### **ЭТАП 4: Отчеты и экспорт (2-3 дня)** 🟡 **ЖЕЛАТЕЛЬНО ДЛЯ MVP**
-
-- [ ] **TASK 4.1**: Генератор Markdown-отчетов (`src/reports/report_generator.py`)
-  - Секции: Summary, Critical Changes, Added, Removed, Modified
-  - Таблицы с impact-индикаторами (🔴 🟠 🟡 🟢)
-  - Рекомендации по миграции
-
-- [ ] **TASK 4.2**: Подсветка изменений JSON (`src/reports/diff_highlighter.py`)
-  - Side-by-side сравнение JSON
-  - ANSI-цвета для CLI
-  - Markdown-формат для отчетов
-
-**Статус:** 🟡 Желательно (можно сделать после актуализации)
-
----
-
-### **ЭТАП 5: CLI интерфейс (2-3 дня)** 🟡 **ВАЖНО**
-
-- [ ] **TASK 5.1**: Главный CLI (`src/cli/main.py`)
-  - Команда `compare` ✅ (уже есть в analyze_changes.py)
-  - Команда `actualize` 🔴 (критично)
-  - Команда `validate` 🟡 (желательно)
-
-- [ ] **TASK 5.2**: Rich UI для CLI
-  - Прогресс-бары для длительных операций
-  - Цветной вывод результатов
-  - Таблицы для вывода diff
-
-- [ ] **TASK 5.3**: Интеграционные тесты CLI
-  - E2E тесты для всех команд
-  - Проверка валидности выходных файлов
-
-**Статус:** 🟡 В ожидании (зависит от TASK 3.4)
-
----
-
-### **БУДУЩИЕ ЭТАПЫ (не входят в MVP 0.1.0)**
-
-#### **Версия 0.2.0 — Генератор (опционально, 10-15 дней)**
-
-- [ ] ScenarioGenerator (базовый)
-- [ ] CallMappingLoader (Лист 19 Excel)
-- [ ] Комбинаторная генерация (productCd × loanTypeCd × channelCd)
-
-#### **Версия 1.0.0 — Конфигуратор (идея, 15-20 дней)**
-
-- [ ] Конфигурационный YAML
-- [ ] Интерактивный CLI (Rich library)
-- [ ] Web UI (FastAPI + React) — опционально
-
----
-
-## 🗂️ СТРУКТУРА ПРОЕКТА
-
-```
-json-scenario-generator/
-│
-├── config/                          # Конфигурация
-│   ├── __init__.py
-│   ├── settings.py                  # AppConfig, пути
-│   └── logging_config.py
-│
-├── data/                            # Данные (не в Git)
-│   ├── schemas/                     # JSON Schema (любые версии)
-│   ├── dictionaries/                # Excel-справочники
-│   └── scenarios/                   # JSON-сценарии из Postman
-│
-├── src/                             # Исходный код
-│   ├── models/                      # Модели данных (dataclasses)
-│   │   ├── schema_models.py         # VersionInfo, FieldMetadata, SchemaDiff
-│   │   ├── dictionary_models.py     # Dictionary, DictionaryEntry
-│   │   ├── change_models.py         # AnalyzedChange, AnalysisResult
-│   │   ├── enums.py                 # ChangeType, BreakingLevel, ImpactLevel
-│   │   └── scenario_models.py       # Scenario (для v0.2.0)
-│   │
-│   ├── parsers/                     # Парсеры
-│   │   ├── schema_parser.py         # JSON Schema Draft 2019-09
-│   │   └── condition_parser.py      # SpEL-выражения (pyparsing)
-│   │
-│   ├── loaders/                     # Загрузчики
-│   │   ├── dictionary_loader.py     # Excel → Dictionary
-│   │   └── scenario_loader.py       # JSON → Scenario
-│   │
-│   ├── core/                        # Ядро (бизнес-логика)
-│   │   ├── schema_comparator.py     # Сравнение схем
-│   │   ├── condition_evaluator.py   # Выполнение SpEL (TASK 3.1)
-│   │   ├── spel_functions.py        # 34 SpEL-оператора (TASK 3.1)
-│   │   ├── conditional_validator.py # Валидация УО полей (TASK 3.2)
-│   │   ├── value_generator.py       # Генерация значений (TASK 3.3)
-│   │   ├── json_actualizer.py       # Актуализация JSON (TASK 3.4)
-│   │   └── json_validator.py        # Валидация JSON Schema (TASK 3.5)
-│   │
-│   ├── analyzers/                   # Анализаторы
-│   │   └── change_analyzer.py       # Классификация изменений (3-level)
-│   │
-│   ├── formatters/                  # Форматтеры ✅ НОВОЕ
-│   │   ├── __init__.py
-│   │   └── report_formatter.py      # ReportFormatter (text/md/json)
-│   │
-│   ├── reports/                     # Отчеты
-│   │   ├── report_generator.py      # Markdown/JSON (TASK 4.1)
-│   │   └── diff_highlighter.py      # Side-by-side diff (TASK 4.2)
-│   │
-│   ├── utils/                       # Утилиты
-│   │   ├── logger.py                # loguru
-│   │   ├── file_utils.py
-│   │   └── json_utils.py
-│   │
-│   └── cli/                         # CLI
-│       ├── main.py                  # click + Rich UI
-│       └── commands/
-│           ├── compare.py           # ✅ Готово
-│           ├── actualize.py         # 🔴 В работе
-│           └── validate.py          # 🟡 Запланировано
-│
-├── tests/                           # Тесты (pytest)
-│   ├── unit/                        # 153 unit-тестов ✅
-│   ├── integration/                 # E2E тесты
-│   └── fixtures/                    # Тестовые данные
-│
-├── scripts/                         # Вспомогательные скрипты
-│   ├── setup_project.py             # Создание структуры
-│   └── analyze_changes.py           # ✅ CLI для анализа
-│
-├── docs/                            # Документация ✅ ОБНОВЛЕНО
-│   ├── PRD.md                       # Product Requirements Document
-│   ├── ARCHITECTURE.md              # Архитектура системы ✅ НОВОЕ
-│   └── DEVELOPMENT.md               # Руководство разработчика ✅ НОВОЕ
-│
-├── .gitignore
-├── .env.example
-├── requirements.txt                 # Python зависимости
-├── requirements-dev.txt
-├── pytest.ini                       # Конфигурация pytest
-├── README.md                        # Этот файл
-└── main.py                          # Точка входа
-```
-
----
-
-## 🚀 БЫСТРЫЙ СТАРТ
-
-### 1. Клонирование репозитория
-```bash
+# 1. Клонируйте репозиторий
 git clone https://github.com/Chemixx/json-scenario-generator.git
 cd json-scenario-generator
-```
 
-### 2. Создание виртуального окружения
-```bash
+# 2. Создайте виртуальное окружение
 python -m venv venv
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Linux/Mac
 
-# Windows
-venv\Scripts\activate
-
-# Linux/Mac
-source venv/bin/activate
-```
-
-### 3. Установка зависимостей
-```bash
+# 3. Установите зависимости
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
-```
 
-### 4. Создание структуры проекта
-```bash
+# 4. Инициализируйте проект
 python scripts/setup_project.py
-```
-
-### 5. Настройка окружения
-```bash
 cp .env.example .env
-# Отредактируйте .env при необходимости
-```
 
-### 6. Запуск тестов
-```bash
+# 5. Запустите тесты
 pytest
-# Результат: 153 passed
+# Ожидаемый результат: 281 passed (100%)
 ```
 
 ---
 
-## 📊 ПРИМЕРЫ ИСПОЛЬЗОВАНИЯ
+## 🚀 Возможности
 
-### Анализ изменений между версиями ✅ **ГОТОВО**
+### ✅ Реализовано (v0.1.0)
+
+| Возможность | Описание | Статус |
+|-------------|----------|--------|
+| **Анализ изменений** | Сравнение любых версий JSON Schema (version-agnostic) | ✅ |
+| **3-уровневая классификация** | ChangeType + BreakingLevel + ImpactLevel | ✅ |
+| **Breaking changes detection** | Удаление required-полей, смена типов, constraints | ✅ |
+| **Отчёты в 3 форматах** | Text, Markdown, JSON | ✅ |
+| **Загрузка справочников** | Excel-справочники (.xlsx), кэширование | ✅ |
+| **SpelAST** | 52 NodeType, 13 основных узлов | ✅ |
+| **SpelParser** | Парсинг SpEL → AST, 34 оператора | ✅ |
+| **SpelFunctions** | 34/34 функции (Date API, String API, бизнес-функции) | ✅ |
+| **ConditionEvaluator** | Выполнение AST, все операторы, 38 тестов | ✅ |
+| **ConditionalValidator** | Валидация УО полей, 36 тестов | ✅ |
+| **ValueGenerator** | Генерация значений: Faker, ИНН/СНИЛС/телефон, UUID, справочники, 34 теста, 94% | ✅ |
+
+### 🔴 В разработке
+
+| Возможность | Описание |
+|-------------|----------|
+| **JsonValidator** | Двойная валидация: JSON Schema + SpEL |
+| **JsonActualizer** | Применение SchemaDiff к JSON-сценариям |
+| **CLI `actualize`** | Команда для актуализации |
+
+### 🟡 Запланировано
+
+| Возможность | Версия |
+|-------------|--------|
+| Rich UI (прогресс-бары, цветные таблицы) | v0.1.0 |
+| Markdown-отчёты с рекомендациями по миграции | v0.1.0 |
+| Side-by-side diff для JSON | v0.1.0 |
+| Генерация новых сценариев с нуля (combinatorics) | v0.2.0 |
+| Интерактивный CLI + Web UI | v1.0.0 |
+
+---
+
+## 💻 Примеры использования
+
+### Анализ изменений между версиями ✅
+
+Сравнить две JSON Schema и получить отчёт:
 
 ```bash
 python scripts/analyze_changes.py \
   --old-schema data/V070Call1Rq.json \
   --new-schema data/V072Call1Rq.json \
   --format markdown \
-  --output reports/changes_070_to_072.md
-```
-
-**Результат:**
-```markdown
-# JSON Schema Analysis Report
-
-**Old Version:** V070Call1Rq.json  
-**New Version:** V072Call1Rq.json  
-
-## Summary
-- Total Changes: 25
-- Breaking Changes: 7 🔴
-- Non-breaking Changes: 18
-
-## Critical Changes (2)
-
-1. **loanRequest/snils** — REMOVED
-   - Type: REMOVAL
-   - Breaking: BREAKING
-   - Impact: HIGH
-   - Reason: Removed required field
-```
-
----
-
-### Актуализация JSON-сценариев 🔴 **В РАЗРАБОТКЕ**
-
-```bash
-python -m src.cli actualize \
-  --old-schema data/V070Call1Rq.json \
-  --new-schema data/V072Call1Rq.json \
-  --scenario data/scenarios/call1_pacl_v070.json \
-  --output output/call1_pacl_v072.json
+  --output reports/changes_070_to_072.md \
+  --verbose
 ```
 
 **Что делает:**
-- Загружает схемы V070 и V072
-- Сравнивает их (SchemaDiff)
+1. Парсит обе схемы → извлекает метаданные каждого поля
+2. Сравнивает → находит добавленные, удалённые, изменённые поля
+3. Классифицирует → определяет breaking changes и критичность
+4. Формирует отчёт в выбранном формате
+
+**Пример результата (Markdown):**
+
+```markdown
+# JSON Schema Analysis Report
+
+**Old:** V070Call1Rq  |  **New:** V072Call1Rq
+
+## 📈 Статистика
+- Всего изменений: 25
+- Breaking changes: 7 ⚠️
+- Non-breaking: 18 ✅
+
+## 🔴 Breaking Changes
+1. `loanRequest/snils` — REMOVED (required field)
+2. `loanRequest/creditAmt` — type changed: integer → string
+...
+```
+
+**Фильтры:** `--only-critical` (только CRITICAL), `--only-breaking` (только BREAKING)
+
+### Актуализация JSON-сценария 🔴
+
+*(После реализации Этапа 3)*
+
+```bash
+python -m src.cli actualize \
+  --old-schema data/V070Call1Rq.json \
+  --new-schema data/V072Call1Rq.json \
+  --scenario data/scenarios/call1_pacl_v070.json \
+  --output output/call1_pacl_v072.json \
+  --dictionaries data/dictionaries/
+```
+
+**Что делает:**
 - Добавляет новые обязательные поля с валидными значениями
 - Удаляет устаревшие поля
-- Обновляет значения при смене типов
+- Преобразует значения при смене типов
 - Валидирует результат (JSON Schema + SpEL)
-- Сохраняет обновленный JSON
+- Сохраняет UUID-связи между Call
 
----
+### Валидация JSON 🟡
 
-### Валидация JSON 🟡 **ЗАПЛАНИРОВАНО**
+*(После реализации Этапа 3)*
 
 ```bash
 python -m src.cli validate \
@@ -550,154 +194,333 @@ python -m src.cli validate \
   --json-file output/call1_pacl_v072.json
 ```
 
-**Что делает:**
-- Проверяет JSON по JSON Schema Draft 2019-09
-- Валидирует conditionalRequirement (SpEL)
-- Выводит ошибки с путями и dqCode
+**Что делает:** проверяет JSON по схеме и SpEL-условиям, возвращает ошибки с путями и dqCode.
 
 ---
 
-## 🎯 КРИТЕРИИ УСПЕХА MVP 0.1.0
+## 🏗️ Как это работает
 
-### Функциональные критерии
+### Архитектура
 
-- [x] **Анализ:** Сравнение любых версий схем за < 5 сек ✅
-- [ ] **Актуализация:** Обновление 100 JSON за < 5 минут 🔴
-- [ ] **Валидация:** Проверка 100 JSON за < 2 минуты 🟡
-- [ ] **SpEL:** Поддержка 34 операторов с 100% тестовым покрытием 🔴
-- [ ] **Генерация значений:** Все типы полей (string, int, dict, array, object) 🔴
-- [ ] **UUID-связи:** Сохранение связей между Call0→Call1 🔴
+Проект построен на **SOLID-принципах** с чётким разделением на слои. Каждый слой решает одну задачу и не зависит от конкретных реализаций соседних слоёв.
 
-### Качественные критерии
+```
+┌─────────────────────────────────────────────┐
+│                  CLI / Scripts              │  ← Тонкая оболочка
+├─────────────────────────────────────────────┤
+│              ReportFormatter                │  ← Форматирование (text/md/json)
+├─────────────────────────────────────────────┤
+│              ChangeAnalyzer                 │  ← 3-уровневая классификация
+├─────────────────────────────────────────────┤
+│          SchemaComparator                   │  ← Сравнение двух схем
+├─────────────────────────────────────────────┤
+│   SchemaParser │ DictionaryLoader │ SpEL    │  ← Парсеры и загрузчики
+├─────────────────────────────────────────────┤
+│   VersionInfo │ FieldMetadata │ SchemaDiff  │  ← Модели данных (dataclasses)
+└─────────────────────────────────────────────┘
+```
 
-- [x] **Покрытие тестами:** 100% для этапов 0-2.5 ✅ (153 теста)
-- [x] **Архитектура:** SOLID, модульность, расширяемость ✅
-- [x] **Документация (код):** Docstrings, Type Hints ✅
-- [x] **Документация (проект):** README, ARCHITECTURE, DEVELOPMENT ✅
-- [ ] **User Experience:** CLI с Rich UI (прогресс-бары, цвета) 🟡
-- [ ] **Обработка ошибок:** Понятные сообщения с рекомендациями 🟡
+### Поток данных (анализ изменений)
 
-### Бизнес-критерии
+```
+CLI → SchemaParser → Dict[str, FieldMetadata]
+       SchemaComparator → SchemaDiff (added/removed/modified)
+       ChangeAnalyzer → AnalysisResult (classified changes)
+       ReportFormatter → text / markdown / JSON
+```
 
-- [ ] **Экономия времени:** Актуализация за 30 минут вместо 3 дней 🎯
-- [ ] **Точность:** 0 ошибок валидации на тестовых данных 🎯
-- [ ] **Покрытие:** 80% комбинаций продуктов (для v0.2.0) ⏳
+### Поток данных (актуализация — в разработке)
 
----
+```
+CLI → SchemaDiff (из анализа)
+       + старый JSON-сценарий
+       → JsonActualizer (применяет изменения)
+       → ConditionalValidator (проверяет УО)
+       → новый JSON-сценарий
+```
 
-## 📅 ДЕДЛАЙНЫ
-
-| Версия | Срок | Статус | Прогресс |
-|--------|------|--------|----------|
-| **MVP 0.1.0** | **25 декабря 2025** | 🔴 В работе | **45-50%** |
-| Версия 0.2.0 | Январь 2026 | ⏳ Запланировано | 0% |
-| Версия 1.0.0 | Q1 2026 | 💡 Идея | 0% |
-
-**Текущий фокус:** TASK 3.1-3.4 (SpEL + Актуализация) — **P0 критичность**
-
----
-
-## 🛠️ ТЕХНОЛОГИИ
-
-| Категория | Библиотека | Версия | Назначение |
-|-----------|-----------|--------|------------|
-| **JSON** | jsonschema | 4.20.0 | Валидация JSON Schema |
-| **Excel** | openpyxl | 3.1.2 | Чтение .xlsx |
-| **Data** | pandas | 2.2.0 | Табличные данные |
-| **Parsing** | pyparsing | 3.1.1 | SpEL-парсер |
-| **Testing** | Faker | 22.0.0 | Тестовые данные |
-| **CLI** | click | 8.1.7 | CLI framework |
-| **UI** | rich | 13.7.0 | Красивый CLI |
-| **Logging** | loguru | 0.7.2 | Логирование |
-| **Testing** | pytest | 7.4.3 | Тестирование |
-| **Config** | python-dotenv | 1.0.0 | .env файлы |
+**Ключевой принцип:** ядро (сравнение, актуализация, валидация) не знает про CLI и формат отчётов. Это позволяет легко добавлять новые интерфейсы без изменения бизнес-логики.
 
 ---
 
-## 📚 ДОКУМЕНТАЦИЯ
+## 📁 Структура проекта
 
-- **[README.md](README.md)** — этот файл, обзор проекта
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — архитектура системы, SOLID-принципы, слои
-- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — руководство разработчика, как добавлять функционал
-- **[docs/PRD.md](docs/PRD.md)** — Product Requirements Document, требования к продукту
+```
+json-scenario-generator/
+├── config/                 # Конфигурация (AppConfig, пути, логирование)
+├── data/                   # Входные данные (не в Git)
+│   ├── schemas/            # JSON Schema (любые версии)
+│   ├── dictionaries/       # Excel-справочники
+│   └── scenarios/          # JSON-сценарии
+├── src/                    # Исходный код
+│   ├── models/             # Доменные модели (dataclasses + enums)
+│   ├── parsers/            # Парсеры (JSON Schema, SpEL)
+│   ├── loaders/            # Загрузчики (Excel → Dictionary)
+│   ├── core/               # Ядро: сравнение, SpEL, актуализация
+│   ├── analyzers/          # Классификация изменений
+│   ├── formatters/         # Форматирование отчётов
+│   ├── reports/            # Расширенные отчёты (в работе)
+│   ├── utils/              # Логирование, JSON, Excel утилиты
+│   └── cli/                # CLI-интерфейс
+├── tests/                  # Тесты (pytest, 153 unit-теста)
+├── scripts/                # CLI-скрипты для запуска
+├── docs/                   # Документация
+├── output/                 # Выходные файлы (не в Git)
+└── deprecated/             # Устаревший код (spel_v0.2.0_evaluator)
+```
+
+> 📌 Полная структура с описанием каждого модуля — в [SPECIFICATION.md](docs/SPECIFICATION.md), Раздел 11.
 
 ---
 
-## 🤝 CONTRIBUTING
+## 🧪 Тестирование
 
-Проект находится в активной разработке. Pull requests приветствуются!
+**Фреймворк:** pytest + pytest-cov
+
+| Метрика | Значение |
+|---------|----------|
+| Unit-тестов задекларировано | 250+ |
+| Unit-тестов проходит | **247** |
+| Pass rate | 100% ✅ |
+| Покрытие (этапы 0–2.5) | 100% |
+| Покрытие (SpEL) | 100% (AST ✅, Parser ✅, Evaluator ✅, Functions ✅, Validator ✅) |
+
+### Запуск тестов
+
+```bash
+pytest                          # Все тесты (247 passed)
+pytest -v                       # Подробный вывод
+pytest --cov=src                # С покрытием
+pytest tests/unit/ -v           # Только unit-тесты
+pytest tests/unit/core/test_condition_evaluator.py -v  # ConditionEvaluator (38 тестов)
+pytest tests/unit/core/test_conditional_validator.py -v  # ConditionalValidator (36 тестов)
+```
+
+### Покрытие по этапам
+
+| Этап | Компоненты | Тестов | Статус |
+|------|-----------|--------|--------|
+| 0 | Подготовка | — | ✅ |
+| 1 | Модели, конфигурация, логирование | 12 | ✅ |
+| 2 | Парсеры (SchemaParser, DictionaryLoader) | 31 | ✅ |
+| 2.5 | SchemaComparator, ChangeAnalyzer, ReportFormatter | 36 | ✅ |
+| 3.1 | SpelAST, SpelParser | 20 | ✅ |
+| 3.2 | ConditionEvaluator | 38 | ✅ |
+| 3.3 | ConditionalValidator | 36 | ✅ |
+| **Итого** | | **247 passed** | ✅ |
+
+---
+
+## 🛠️ Технологии
+
+| Категория | Библиотека | Назначение |
+|-----------|-----------|------------|
+| JSON | [jsonschema](https://python-jsonschema.readthedocs.io/) 4.20.0 | Валидация JSON Schema |
+| Excel | [openpyxl](https://openpyxl.readthedocs.io/) 3.1.2 | Чтение .xlsx справочников |
+| Parsing | [pyparsing](https://pyparsing-docs.readthedocs.io/) 3.1.1 | SpEL-парсер |
+| CLI | [click](https://click.palletsprojects.com/) 8.1.7 | CLI framework |
+| UI | [rich](https://rich.readthedocs.io/) 13.7.0 | Красивый терминальный вывод |
+| Logging | [loguru](https://github.com/Delgan/loguru) 0.7.2 | Логирование с ротацией |
+| Testing | [pytest](https://docs.pytest.org/) + [Faker](https://faker.readthedocs.io/) | Тестирование и генерация данных |
+| Data | [pandas](https://pandas.pydata.org/) 2.2.0 | Табличные данные, Excel-справочники |
+| Config | [python-dotenv](https://saurabh-kumar.com/python-dotenv/) 1.0.0 | .env файлы |
+| Python | CPython 3.12+ | Язык разработки |
+
+---
+
+## 📚 Документация
+
+| Документ | Описание |
+|----------|----------|
+| [README.md](README.md) | Этот файл — обзор проекта, быстрый старт, примеры |
+| [SPECIFICATION.md](docs/SPECIFICATION.md) | 📋 **Полная спецификация** (~2700 строк): модели, алгоритмы, CLI, тесты, SpEL, roadmap, известные проблемы |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 🏗️ Архитектура системы, SOLID-принципы, слои, поток данных |
+| [DEVELOPMENT.md](docs/DEVELOPMENT.md) | 👨‍💻 Руководство разработчика: как добавлять функционал, тестировать, не ломая архитектуру |
+| [PRD.md](docs/PRD.md) | 📝 Product Requirements Document — бизнес-требования к продукту |
+
+> 💡 **С чего начать чтение?**
+> - **Новичкам:** этот README → [ARCHITECTURE.md](docs/ARCHITECTURE.md) → [DEVELOPMENT.md](docs/DEVELOPMENT.md)
+> - **Разработчикам:** [SPECIFICATION.md](docs/SPECIFICATION.md) (Разделы 4–7 — модели и алгоритмы)
+> - **Менеджерам:** этот README → [PRD.md](docs/PRD.md) → раздел 13 SPECIFICATION (Roadmap)
+
+---
+
+## 🗺️ Roadmap
+
+### Текущий статус: 🚧 Этап 6 (ValueGenerator) — в работе
+
+```
+✅ Этап 0: Подготовка                          100%
+✅ Этап 1: Базовая инфраструктура               100%
+✅ Этап 2: Парсеры и загрузчики                 100%
+✅ Этап 2.5: Анализаторы                        100%
+✅ Этап 3: SpEL AST и Parser                    100%
+✅ Этап 4: SpEL Functions                       100%
+✅ Этап 5: ConditionEvaluator + Validator       100%
+🟡 Этап 6: ValueGenerator                       0%    ← ТЕКУЩИЙ ФОКУС
+🟡 Этап 7: JsonActualizer                      0%
+🟡 Этап 8: JsonValidator                       0%
+🟡 Этап 9: CLI интеграция                      0%
+```
+
+### Прогресс по компонентам
+
+| Задача | Компонент | Приоритет | Статус |
+|--------|-----------|-----------|--------|
+| SpelAST | `src/core/spel_ast.py` | 🔴 P0 | ✅ 52 NodeType |
+| SpelParser | `src/core/spel_parser.py` | 🔴 P0 | ✅ 34 оператора |
+| SpelFunctions | `src/core/spel_functions.py` | 🔴 P0 | ✅ 34/34 функции |
+| ConditionEvaluator | `src/core/condition_evaluator.py` | 🔴 P0 | ✅ 38 тестов |
+| ConditionalValidator | `src/core/conditional_validator.py` | 🔴 P0 | ✅ 36 тестов |
+| ValueGenerator | `src/core/value_generator.py` | 🔴 P0 | 🔴 Ожидает |
+| JsonActualizer | `src/core/json_actualizer.py` | 🔴 P0 | 🔴 Ожидает |
+| JsonValidator | `src/core/json_validator.py` | 🟡 P1 | 🔴 Ожидает |
+| CLI `actualize` | `src/cli/` | 🟡 P1 | 🔴 Ожидает |
+
+> **Итого:** ~75-80% готовности MVP, ~5-7 дней до v0.1.0
+
+### Будущие версии
+
+| Версия | Фокус | Статус |
+|--------|-------|--------|
+| **v0.1.0** | Анализ + актуализация + валидация | 🔴 В разработке |
+| **v0.2.0** | Генерация новых сценариев с нуля | ⏳ Запланировано |
+| **v1.0.0** | YAML-конфигурация, интерактивный CLI, Web UI | 💡 Идея |
+
+---
+
+## 🐛 Известные проблемы
+
+| # | Проблема | Серьёзность | Статус |
+|---|----------|-------------|--------|
+| 1 | `json_utils.py` использует Draft7Validator вместо Draft201909Validator | 🟡 Средняя | ✅ Исправлено (11.05.2026) |
+| 2 | Нет интеграционных тестов (только unit-тесты) | 🟡 Средняя | Добавить E2E |
+| 3 | Нет test fixtures | 🟡 Низкая | Добавить fixtures |
+| 4 | Backup файлы в репо (.backup) | 🟡 Низкая | Удалить |
+| 5 | Deprecated code в src/ | 🟡 Низкая | Переместить/удалить |
+
+> ✅ **Исправлено в v0.1.0:** Broken imports, Test-AST mismatch, SpEL parser incomplete, SpelFunctions (4/34 → 34/34), ConditionEvaluator, ConditionalValidator. Все 247 тестов проходят.
+
+Подробности и рекомендации — в [SPECIFICATION.md](docs/SPECIFICATION.md), Раздел 14.
+
+---
+
+## 🤝 Contributing
+
+Pull requests приветствуются! Проект в активной разработке.
 
 ### Workflow
 
-1. Fork репозитория
-2. Создайте feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit изменений (`git commit -m 'feat: add amazing feature'`)
-4. Push в branch (`git push origin feature/amazing-feature`)
-5. Создайте Pull Request
+```bash
+# 1. Fork и клонирование
+git clone https://github.com/Chemixx/json-scenario-generator.git
+cd json-scenario-generator
+
+# 2. Feature branch
+git checkout -b feature/add-json-actualizer
+
+# 3. Разработка + тесты
+pytest
+
+# 4. Коммит (Conventional Commits)
+git commit -m "feat(core): implement JsonActualizer for added fields"
+
+# 5. Push и Pull Request
+git push origin feature/add-json-actualizer
+```
 
 ### Conventional Commits
 
-Используем [Conventional Commits](https://www.conventionalcommits.org/):
-- `feat:` — новая функциональность
-- `fix:` — исправление бага
-- `docs:` — изменения документации
-- `test:` — добавление тестов
-- `refactor:` — рефакторинг без изменения функциональности
-- `chore:` — обновление зависимостей, конфигурации
+| Тип | Описание | Пример |
+|-----|----------|--------|
+| `feat:` | Новая функциональность | `feat(core): add ValueGenerator` |
+| `fix:` | Исправление бага | `fix(parsers): handle nested arrays` |
+| `docs:` | Изменения документации | `docs: update SPECIFICATION` |
+| `test:` | Добавление тестов | `test(core): cover JsonActualizer` |
+| `refactor:` | Рефакторинг | `refactor: simplify SchemaComparator` |
+| `chore:` | Зависимости, конфигурация | `chore: bump jsonschema to 4.20.0` |
 
-**См. подробности:** [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+### Правила для разработчиков
 
----
+1. **Не смешивать слои** — парсер не формирует отчёты, анализатор не читает файлы
+2. **Сначала модель → потом логика** — новая сущность? Добавьте dataclass в `src/models/`
+3. **Сначала тест → потом код** — опишите ожидаемое поведение, затем реализуйте
+4. **100% покрытие** для нового кода
+5. **Используйте logger**, а не print
 
-## 📝 ЛИЦЕНЗИЯ
-
-MIT License — см. файл [LICENSE](LICENSE)
-
----
-
-## 📧 КОНТАКТЫ
-
-**Автор:** Chemixx  
-**GitHub:** [Chemixx/json-scenario-generator](https://github.com/Chemixx/json-scenario-generator)  
-**Issues:** [GitHub Issues](https://github.com/Chemixx/json-scenario-generator/issues)
+> 📌 Подробности — в [DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ---
 
-## 🎯 CHANGELOG
+## 📄 Лицензия
 
-### [0.1.0] - В разработке (45-50%)
+[MIT License](LICENSE)
 
-#### ✅ Завершено (10 декабря 2025)
-- **Этап 0:** Подготовка окружения (100%)
-- **Этап 1:** Базовая инфраструктура (100%)
-  - Конфигурация, логирование, модели данных (FieldMetadata, ConditionalRequirement, Enums)
+---
+
+## 📬 Контакты
+
+| | |
+|---|---|
+| **Автор** | Chemixx |
+| **GitHub** | [Chemixx/json-scenario-generator](https://github.com/Chemixx/json-scenario-generator) |
+| **Issues** | [GitHub Issues](https://github.com/Chemixx/json-scenario-generator/issues) |
+
+---
+
+## 📋 Changelog
+
+<details>
+<summary><b>0.1.0-dev</b> — В разработке</summary>
+
+### ✅ Завершено
+
+- **Этап 0:** Подготовка окружения (Python 3.12+, venv, зависимости, структура)
+- **Этап 1:** Базовая инфраструктура
+  - AppConfig с путями к data/, output/, logs/
+  - loguru с консольным и файловым выводом, ротация 10 MB
+  - Модели данных: VersionInfo, FieldMetadata, ConditionalRequirement, SchemaDiff, enums
   - 12 unit-тестов
-- **Этап 2:** Парсеры и загрузчики (100%)
-  - SchemaParser, DictionaryLoader, ConditionParser
-  - 73 unit-теста
-- **Этап 2.5:** Анализаторы (100%)
-  - SchemaComparator, ChangeAnalyzer (3-level classification)
-  - **ReportFormatter** — модульное форматирование (text/markdown/json) ✅ **НОВОЕ**
-  - CLI команда `compare` для анализа изменений
+- **Этап 2:** Парсеры и загрузчики
+  - SchemaParser — JSON Schema Draft 2019-09, рекурсивный обход, conditions
+  - DictionaryLoader — Excel-справочники (классический + групповой формат), кэширование
+  - 31 unit-тест
+- **Этап 2.5:** Анализаторы
+  - SchemaComparator — сравнение схем, детальный разбор изменений constraints
+  - ChangeAnalyzer — 3-уровневая классификация (ChangeType + BreakingLevel + ImpactLevel)
+  - ReportFormatter — text / markdown / json
+  - CLI `analyze_changes.py` — сравнение любых версий с фильтрами
   - 101 unit-тест
-- **Документация:** README, ARCHITECTURE, DEVELOPMENT, PRD ✅ **ОБНОВЛЕНО**
+- **Этап 3:** SpEL AST и Parser
+  - SpelAST — 52 NodeType, 13 основных узлов
+  - SpelParser — парсинг SpEL → AST, поддержка 34 операторов (pyparsing)
+  - 20 unit-тестов
+- **Этап 4:** SpEL Functions
+  - 34/34 функции (Date API, String API, бизнес-функции)
+- **Этап 5:** ConditionEvaluator + ConditionalValidator
+  - ConditionEvaluator — выполнение AST, все операторы, 38 тестов ✅
+  - ConditionalValidator — валидация УО полей, 36 тестов ✅
 
-**Всего тестов:** ✅ **153 passed** (100% success rate)
+**Всего тестов:** 247 passed (100%)
 
-#### 🔴 В работе (следующий шаг)
-- **Этап 3:** SpEL и актуализация (0%)
-  - TASK 3.1: ConditionEvaluator + SpELFunctions (P0)
-  - TASK 3.2: ConditionalValidator (P0)
-  - TASK 3.3: ValueGenerator (P0)
-  - TASK 3.4: JsonActualizer (P0)
-  - TASK 3.5: JsonValidator (P1)
-  - TASK 3.6: CLI `actualize` (P1)
+### 🔧 Исправлено
+- **TD-8:** `json_utils.py` — заменён `Draft7Validator` на `Draft201909Validator`
 
-#### 🟡 Запланировано
-- **Этап 4:** Отчеты (ReportGenerator, DiffHighlighter)
-- **Этап 5:** CLI интеграция (Rich UI, E2E тесты)
+### 🔴 В работе
+
+- **Этап 6:** ValueGenerator — генерация валидных значений (Faker, UUID-кэш, ИНН, СНИЛС)
+- **Этап 7:** JsonActualizer — применение SchemaDiff к JSON-сценариям
+
+### 🟡 Запланировано
+
+- **Этап 8:** JsonValidator — двойная валидация (JSON Schema + SpEL)
+- **Этап 9:** CLI команды (`actualize`, `validate`)
+- **Этап 10:** ScenarioGenerator — комбинаторика сценариев
+
+</details>
 
 ---
 
-**Последнее обновление:** 10 декабря 2025, 01:47 MSK  
-**Статус проекта:** 🚧 В активной разработке (45-50% MVP завершено)
+<p align="center">
+  <sub>Последнее обновление: 7 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 6 в работе (~75-80% MVP)</sub>
+</p>
