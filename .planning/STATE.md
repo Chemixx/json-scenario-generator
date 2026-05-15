@@ -119,10 +119,10 @@
 
 ### P2 (Post-MVP)
 
-| # | Задача | Оценка |
-|---|--------|--------|
-| 10 | SpelFormatter | 2 дня |
-| 11 | ReportGenerator | 2 дня |
+| # | Задача | Оценка | Зависимости | Детали |
+|---|--------|--------|-------------|--------|
+| 10 | **SpelFormatter** | 2-3 дня | SpelParser, DictionaryLoader | Форматирование SpEL → человекочитаемый текст. Пример: `in(productCdExt, 10410001)` → `продукт = PACCREACT`. 3 уровня детализации (SHORT/MEDIUM/DETAILED). Архитектура: registry/visitor/template — требует выбора. 15+ тестов. |
+| 11 | ReportGenerator | 2 дня | SpelFormatter, ReportFormatter | Расширенные Markdown-отчёты с подсветкой diff и рекомендациями |
 
 ---
 

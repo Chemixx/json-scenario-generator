@@ -148,18 +148,92 @@ ConditionEvaluator ✅ → ConditionalValidator ✅ → ValueGenerator (P0) → 
 
 ## 🟢 P2 — Post-MVP (улучшения)
 
-### SpelFormatter
+### Этап 11: SpelFormatter
+
+**Приоритет:** P2 (Post-MVP)  
+**Зависимости:** SpelParser (✅), SpelFunctions (✅), DictionaryLoader (✅)  
+**Блокирует:** ReportGenerator (P2), улучшенные markdown-отчёты  
+**Оценка:** 2-3 дня  
+**Цель:** Преобразование сырых SpEL-выражений в отчётах в читаемый русский текст.
+
+---
 
 **Файлы:**
-- `src/formatters/spel_formatter.py`
-- `tests/unit/formatters/test_spel_formatter.py`
+- `src/formatters/spel_formatter.py` — реализация форматтера
+- `tests/unit/formatters/test_spel_formatter.py` — 15+ unit-тестов
 
-**Требования:**
-- [ ] Форматирование SpEL-выражений в человекочитаемый вид
-- [ ] Интеграция с ChangeAnalyzer для отчётов
-- [ ] 10+ unit-тестов
+**Контекст (почему это важно):**
+В отчётах `ChangeAnalyzer` условно-обязательные (УО) поля выводятся сырыми SpEL-выражениями:
+```
+Условие: in(#this.productCdExt, 10410001, 10410002, 10410034)
+```
+Это нечитаемо для QA и бизнес-аналитиков. `SpelFormatter` превращает это в:
+```
+Условие: продукт = PACCREACT, PACLIREACT или CARDREACT
+```
 
-**Оценка:** 2 дня
+**Архитектурные варианты (требует обсуждения):**
+
+| # | Подход | Строки | Плюсы | Минусы |
+|---|--------|--------|-------|--------|
+| 1 | **Registry (рекомендуется)** | ~200 | Декларативно, легко добавлять операторы | Для сложных вложенных and/or нужны хелперы |
+| 2 | **Visitor Pattern** | ~500 | Строгая типизация, легко тестировать отдельные методы | Много boilerplate, менее идиоматичен для Python |
+| 3 | **Template-based** | ~300 | i18n из коробки, шаблоны в YAML | Сложные вложенные выражения плохо ложатся |
+| 4 | **Recursive Descent** | ~150 | Просто, естественно для AST | Трудно кастомизировать отдельные операторы |
+
+**Ключевая проблема: вложенные условия**
+```spel
+and(
+    notNull(#this.regionCd),
+    in(#this.addressTypeCd, 10150001, 10150002)
+)
+```
+→ Читаемый вывод:
+```
+regionCd не пустой
+И (
+    тип адреса = Регистрация или Фактический
+)
+```
+
+**Требования (функциональные):**
+
+| ID | Требование | Пример входа | Пример выхода |
+|----|-----------|--------------|---------------|
+| FR-SF-001 | Базовые операторы | `eq(status, "ACTIVE")` | `status = ACTIVE` |
+| FR-SF-002 | Логические AND/OR | `and(eq(a,1), eq(b,2))` | `a = 1 И b = 2` |
+| FR-SF-003 | Null-проверки | `notNull(#this.regionCd)` | `regionCd не пустой` |
+| FR-SF-004 | IN с кодами | `in(productCdExt, 10410001, 10410002)` | `продукт = PACCREACT, PACLIREACT` |
+| FR-SF-005 | Дата-операторы | `minusYears(currentDate(), 14)` | `текущая дата минус 14 лет` |
+| FR-SF-006 | Вложенность | `and(eq(a,1), or(eq(b,2), eq(c,3)))` | многострочный с отступами |
+| FR-SF-007 | Справочники | `in(productCdExt, 10410001)` | `продукт = PACCREACT` (через DictionaryLoader) |
+| FR-SF-008 | 3 уровня детализации | SHORT / MEDIUM / DETAILED | `a=1` vs `a = 1` vs `Поле a равно 1` |
+
+**Интеграция с DictionaryLoader:**
+- `productCdExt` → справочник `PRODUCT_TYPE` → код `10410001` → имя `PACCREACT`
+- Поле `field_name → dictionary` маппинг берётся из `FieldMetadata.dictionary`
+
+**Тестовая стратегия:**
+1. 5 тестов на базовые операторы (eq, in, and, or, notNull)
+2. 3 теста на вложенность (2 уровня, 3 уровня, смешанные and/or)
+3. 3 теста на справочники (mock DictionaryLoader)
+4. 3 теста на уровни детализации (SHORT/MEDIUM/DETAILED)
+5. 2 теста на edge cases (пустые выражения, unknown operator)
+
+**Чек-лист реализации:**
+- [ ] Выбрать архитектурный подход (registry/visitor/template/recursive)
+- [ ] Написать `tests/unit/formatters/test_spel_formatter.py`
+- [ ] Реализовать `src/formatters/spel_formatter.py`
+- [ ] Покрытие > 85%
+- [ ] Интеграция с `ReportFormatter.format_markdown()` (опционально)
+- [ ] Обновить `CLAUDE.md`, `TODO.md`, `.planning/STATE.md`
+
+**Риски:**
+| # | Риск | Митигация |
+|---|------|-----------|
+| 1 | Сложные вложенные `and/or` → некорректные скобки | Тесты на 3+ уровня вложенности |
+| 2 | DictionaryLoader медленный при частом резолвинге | Кэшировать `code → name` в SpelFormatter |
+| 3 | Новые операторы в схемах (v75+) | Registry-подход позволяет добавить 1 строкой |
 
 ---
 

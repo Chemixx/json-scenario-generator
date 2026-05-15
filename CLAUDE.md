@@ -70,6 +70,7 @@ cp .env.example .env
 🟡 Этап 8: JsonValidator                       0%
 🟡 Этап 9: CLI команды                         0%
 🟡 Этап 10: ScenarioGenerator                  0%
+🟡 Этап 11: SpelFormatter                      0%    ← P2 (Post-MVP)
 ```
 
 ---
@@ -86,6 +87,7 @@ cp .env.example .env
 | `src/core/value_generator.py` | ✅ | Генератор значений, 34 теста, покрытие 94% |
 | `src/core/condition_evaluator.py` | ✅ | Выполнение AST, 38 тестов |
 | `src/core/conditional_validator.py` | ✅ | Валидация УО полей, 36 тестов |
+| `src/formatters/spel_formatter.py` | 🟡 | Форматирование SpEL → человекочитаемый текст (P2) |
 
 ### Инфраструктура
 
@@ -141,6 +143,16 @@ cp .env.example .env
    - Комбинаторика по 8 параметрам
    - Интеграция с Лист 19 (Excel)
    - Генерация min/max сценариев
+
+### P2 — Post-MVP
+
+6. **SpelFormatter** (`src/formatters/spel_formatter.py`)
+   - Преобразование сырых SpEL-выражений в читаемый текст для отчётов
+   - 3 уровня детализации (SHORT/MEDIUM/DETAILED)
+   - Интеграция с DictionaryLoader для расшифровки кодов
+   - Пример: `in(productCdExt, 10410001)` → `продукт = PACCREACT`
+   - Тесты: `tests/unit/formatters/test_spel_formatter.py`
+   - Статус: 🟡 Спецификация в TODO.md, требует выбора архитектуры
 
 ---
 
