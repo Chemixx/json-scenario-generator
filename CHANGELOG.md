@@ -7,14 +7,14 @@
 
 ---
 
-## [Unreleased]
+## [Unreleased] — 2026-05-14
 
 ### ✅ Завершено (Этап 5 — ConditionalValidator + полная поддержка SpEL)
 
 **Инфраструктура** ✅
 - Исправлен pandas leak: `src/utils/__init__.py` не импортирует `excel_utils` автоматически
 - Установлен `pyparsing==3.1.1` для Python 3.14
-- **247 unit-тестов проходят** (было 173)
+- **281 unit-тестов проходят** (было 173 → 247 → 281)
 
 **SpelAST** ✅ завершён
 - 52 NodeType в `src/core/spel_ast.py`
@@ -69,9 +69,24 @@
 - Проверка обязательных (О) и условно обязательных (УО) полей
 - **36 unit-тестов** в `tests/unit/core/test_conditional_validator.py` (100% проходят)
 
-**ValueGenerator** 🔴 Ожидает реализации (Этап 6)
-- Генерация валидных значений для новых полей
-- Поддержка: Faker, справочники, UUID-кэш, ИНН, СНИЛС
+---
+
+### ✅ Завершено (Этап 6 — ValueGenerator)
+
+**ValueGenerator** ✅ завершён
+- Генератор значений в `src/core/value_generator.py`
+- **34 unit-теста**, покрытие 94%
+- Поддержка типов: string, integer, number, boolean, array
+- Специальные форматы: UUID, date, datetime, email
+- **ИНН:** 10/12 цифр с валидной КС ФНС (`strict_inn=True/False`)
+- **СНИЛС:** 11 цифр без КС (как Java-валидатор)
+- **Телефон:** `7` + 10 цифр (российский мобильный)
+- **UUID-кэш:** external `Dict[str, str]` в `GeneratorConfig` (stateless, ключ = `field_name`)
+- **Faker-интеграция:** два режима (готовый объект или создание из `locale`)
+- **DictionaryLoader:** случайный код из справочника для полей с `dictionary`
+- **Constraints:** minLength, maxLength, minimum, maximum, pattern, enum, minItems, maxItems
+- **Array:** `max(minItems, default_array_size)` элементов, рекурсивно по `items`
+- **Seed-изоляция:** собственный `random.Random()` instance для воспроизводимости
 
 **JsonActualizer** 🔴 Ожидает реализации (Этап 7)
 - Применение SchemaDiff к JSON-сценариям
@@ -80,10 +95,14 @@
 **JsonValidator** 🔴 Ожидает реализации (Этап 8)
 - Двойная валидация: JSON Schema Draft 2019-09 + SpEL-условия
 
+### 🔧 Исправлено
+- **TD-8:** `src/utils/json_utils.py` — заменён `Draft7Validator` на `Draft201909Validator` для корректной валидации JSON Schema Draft 2019-09
+
 
 ### 📋 Запланировано
 
 **Этап 4: Отчёты**
+- `SpelFormatter` — форматирование SpEL-выражений в человекочитаемый текст (P2). Пример: `in(productCdExt, 10410001)` → `продукт = PACCREACT`
 - `ReportGenerator` — расширенные Markdown-отчёты с рекомендациями по миграции
 - `DiffHighlighter` — side-by-side diff для JSON с ANSI-цветами
 
@@ -110,7 +129,7 @@
 | # | Проблема | Серьёзность | Статус |
 |---|----------|-------------|--------|
 | TD-7 | Устаревшие ссылки в документации | 🟠 Высокая | ✅ Исправлено (08.05.2026) |
-| TD-8 | `src/utils/json_utils.py` использует `Draft7Validator` вместо `Draft201909Validator` | 🟡 Средняя | Требуется замена |
+| TD-8 | `src/utils/json_utils.py` использует `Draft7Validator` вместо `Draft201909Validator` | 🟡 Средняя | ✅ Исправлено (11.05.2026) |
 | TD-9 | Нет интеграционных тестов (только unit-тесты) | 🟡 Средняя | Добавить E2E |
 | TD-10 | Нет test fixtures | 🟡 Низкая | Добавить fixtures |
 | TD-11 | Backup files в репо (.backup) | 🟡 Низкая | Удалить |
@@ -209,5 +228,5 @@
 ---
 
 <p align="center">
-  <sub>Последнее обновление: 08 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 6 в работе (~75-80% MVP)</sub>
+  <sub>Последнее обновление: 13 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 6 в работе (~75-80% MVP)</sub>
 </p>
