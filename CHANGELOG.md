@@ -7,6 +7,24 @@
 
 ---
 
+## [0.1.0-dev] - 2026-05-17
+
+### Added
+- **JsonActualizer** (Phase 7): New module `src/core/json_actualizer.py`
+  - `JsonActualizer` class with `actualize()`, `actualize_batch()`, `actualize_from_paths()` methods
+  - `ActualizerConfig`, `ActualizationChange`, `ActualizationResult`, `RenamePair` dataclasses
+  - SchemaDiff-based JSON migration: add/remove/modify/rename fields
+  - Conditional (УО) field evaluation via ConditionEvaluator
+  - Three-level rollback: field (default), full, none
+  - Rename detection via metadata matching (≥3/5 attributes) or explicit field_mapping
+  - Strict value validation on modification (type, enum, pattern, length, range)
+  - Type transformation (integer→string, string→boolean, etc.)
+  - 39 unit tests in `tests/unit/core/test_json_actualizer.py`
+  - Exports added to `src/core/__init__.py`
+
+### Changed
+- Total tests: 281 → 320 passed
+
 ## [Unreleased] — 2026-05-14
 
 ### ✅ Завершено (Этап 5 — ConditionalValidator + полная поддержка SpEL)
@@ -228,5 +246,5 @@
 ---
 
 <p align="center">
-  <sub>Последнее обновление: 13 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 6 в работе (~75-80% MVP)</sub>
+  <sub>Последнее обновление: 17 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 7 завершён (~80-85% MVP)</sub>
 </p>

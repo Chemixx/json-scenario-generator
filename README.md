@@ -2,7 +2,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-0.1.0--dev-orange.svg)]()
-[![Tests](https://img.shields.io/badge/tests-281%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-320%20passed-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 [![Status](https://img.shields.io/badge/status-🚧%20in%20development-yellow.svg)]()
 
@@ -80,7 +80,7 @@ cp .env.example .env
 
 # 5. Запустите тесты
 pytest
-# Ожидаемый результат: 281 passed (100%)
+# Ожидаемый результат: 320 passed (100%)
 ```
 
 ---
@@ -102,13 +102,13 @@ pytest
 | **ConditionEvaluator** | Выполнение AST, все операторы, 38 тестов | ✅ |
 | **ConditionalValidator** | Валидация УО полей, 36 тестов | ✅ |
 | **ValueGenerator** | Генерация значений: Faker, ИНН/СНИЛС/телефон, UUID, справочники, 34 теста, 94% | ✅ |
+| **JsonActualizer** | Применение SchemaDiff к JSON: добавление/удаление/преобразование полей | ✅ |
 
 ### 🔴 В разработке
 
 | Возможность | Описание |
 |-------------|----------|
 | **JsonValidator** | Двойная валидация: JSON Schema + SpEL |
-| **JsonActualizer** | Применение SchemaDiff к JSON-сценариям |
 | **CLI `actualize`** | Команда для актуализации |
 
 ### 🟡 Запланировано
@@ -279,8 +279,8 @@ json-scenario-generator/
 
 | Метрика | Значение |
 |---------|----------|
-| Unit-тестов задекларировано | 250+ |
-| Unit-тестов проходит | **247** |
+| Unit-тестов задекларировано | 300+ |
+| Unit-тестов проходит | **320** |
 | Pass rate | 100% ✅ |
 | Покрытие (этапы 0–2.5) | 100% |
 | Покрытие (SpEL) | 100% (AST ✅, Parser ✅, Evaluator ✅, Functions ✅, Validator ✅) |
@@ -288,7 +288,7 @@ json-scenario-generator/
 ### Запуск тестов
 
 ```bash
-pytest                          # Все тесты (247 passed)
+pytest                          # Все тесты (320 passed)
 pytest -v                       # Подробный вывод
 pytest --cov=src                # С покрытием
 pytest tests/unit/ -v           # Только unit-тесты
@@ -307,7 +307,7 @@ pytest tests/unit/core/test_conditional_validator.py -v  # ConditionalValidator 
 | 3.1 | SpelAST, SpelParser | 20 | ✅ |
 | 3.2 | ConditionEvaluator | 38 | ✅ |
 | 3.3 | ConditionalValidator | 36 | ✅ |
-| **Итого** | | **247 passed** | ✅ |
+| **Итого** | | **320 passed** | ✅ |
 
 ---
 

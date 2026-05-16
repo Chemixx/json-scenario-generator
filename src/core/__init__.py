@@ -1,6 +1,6 @@
 """
 Core module for json-scenario-generator.
-Содержит базовые компоненты: парсеры, компараторы, SpEL-движок.
+Содержит базовые компоненты: парсеры, компараторы, SpEL-движок, актуализатор.
 """
 
 from .schema_comparator import SchemaComparator
@@ -25,6 +25,13 @@ from .spel_ast import (
 )
 from .spel_parser import SpelParser, get_spel_parser
 from .spel_functions import SpelFunctions, spel_functions
+from .json_actualizer import (
+    JsonActualizer,
+    ActualizerConfig,
+    ActualizationChange,
+    ActualizationResult,
+    RenamePair,
+)
 
 __all__ = [
     # Schema Comparator
@@ -56,4 +63,11 @@ __all__ = [
     # SpEL Functions
     'SpelFunctions',
     'spel_functions',
+
+    # JsonActualizer
+    'JsonActualizer',
+    'ActualizerConfig',
+    'ActualizationChange',
+    'ActualizationResult',
+    'RenamePair',
 ]

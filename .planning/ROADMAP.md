@@ -72,30 +72,39 @@
 
 ## Phase 6: ValueGenerator
 
-**Status:** ❌ Not Started
+**Status:** ✅ Complete (2026-05-14)
 
-**Scope:**
-- Генерация валидных значений для всех типов полей
-- Кэширование UUID (одно значение на сценарий)
-- Интеграция с Faker
-- Поддержка типов: string, integer, number, boolean, array, object
+**Delivered:**
+- `src/core/value_generator.py` — генератор значений для leaf-типов
+- `tests/unit/core/test_value_generator.py` — 34 теста, покрытие 94%
+- Поддержка типов: string, integer, number, boolean, array (object — OUT OF SCOPE)
+- UUID-кэш: external `Dict[str, str]` в `GeneratorConfig` (stateless)
+- Faker: два режима (готовый объект или создание из locale)
+- Спецформаты: ИНН (10/12 с КС ФНС), СНИЛС (11 без КС), телефон (7+10 цифр), UUID, date/datetime
+- DictionaryLoader: случайный код из справочника
+- Constraints: minLength, maxLength, minimum, maximum, pattern, enum, minItems, maxItems
+- Array: `max(minItems, default_array_size)` элементов, рекурсивно по items
+- Seed-изоляция: собственный `random.Random()` для воспроизводимости
 
 ---
 
 ## Phase 7: JsonActualizer
 
-**Status:** ❌ Not Started
+**Status:** ✅ Complete (2026-05-17)
 
-**Scope:**
-- Применение SchemaDiff к JSON
-- Обновление полей при изменении схемы
-- Сохранение существующих значений при возможности
+**Delivered:**
+- `src/core/json_actualizer.py` — применение SchemaDiff к JSON
+- `tests/unit/core/test_json_actualizer.py` — unit-тесты
+- Добавление новых полей (с генерацией значений через ValueGenerator)
+- Удаление полей из JSON
+- Преобразование типов полей
+- Сохранение существующих значений
 
 ---
 
 ## Phase 8: JsonValidator
 
-**Status:** ❌ Not Started
+**Status:** 🟡 In Progress
 
 **Scope:**
 - Двойная валидация: JSON Schema + SpEL
@@ -144,7 +153,7 @@
 | ID | Issue | Priority | Files |
 |----|-------|----------|-------|
 | TD-7 | Устаревшие ссылки в документации | ✅ Fixed (08.05.2026) | Обновлены `docs/ARCHITECTURE.md`, `docs/PRD.md`, `CHANGELOG.md`, `TODO.md`, `.planning/STATE.md` |
-| TD-8 | Wrong JSON Schema Draft | 🟠 | `src/utils/json_utils.py:11, 165` |
+| TD-8 | Wrong JSON Schema Draft | ✅ Fixed (11.05.2026) | `src/utils/json_utils.py` — заменён Draft7Validator на Draft201909Validator |
 | TD-9 | No integration tests | 🟡 | `tests/integration/` пуст |
 | TD-10 | No test fixtures | 🟡 | `tests/fixtures/` пуст |
 | TD-11 | Backup files в репо | 🟡 | 6 `.backup` файлов |

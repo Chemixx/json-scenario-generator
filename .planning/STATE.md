@@ -1,6 +1,6 @@
 # Project State: json-scenario-generator
 
-**Analysis Date:** 2026-05-07
+**Analysis Date:** 2026-05-17
 
 ## Executive Summary
 
@@ -8,7 +8,7 @@
 
 **Цель:** Заменить ручную работу QA-инженеров (3–5 дней на релиз) автоматической актуализацией за минуты.
 
-**Текущий статус:** 75–80% готовности. Этапы 0–5 завершены (инфраструктура, парсеры, анализаторы, SpEL AST/Parser/Evaluator, ConditionalValidator). **247 тестов проходят**. Этап 6 (ValueGenerator) в работе.
+**Текущий статус:** ~85% готовности. Этапы 0–7 завершены (инфраструктура, парсеры, анализаторы, SpEL AST/Parser/Evaluator/Functions, ConditionalValidator, ValueGenerator, JsonActualizer). **320 тестов проходят**. Этап 8 (JsonValidator) — следующий.
 
 **Репозиторий:** https://github.com/Chemixx/json-scenario-generator
 
@@ -40,22 +40,22 @@
 | **SpEL Functions** | ✓ | 34/34 функции реализованы |
 | **ConditionEvaluator** | ✓ | 38 тестов, все операторы |
 | **ConditionalValidator** | ✓ | 36 тестов, УО-валидация |
-| **Unit тесты** | ✓ | **247 тестов проходят** |
+| **ValueGenerator** | ✓ | 34 теста, покрытие 94% |
+| **JsonActualizer** | ✓ | Применение SchemaDiff к JSON |
+| **Unit тесты** | ✓ | **320 тестов проходят** |
 
 ### In Progress (⚠️)
 
 | Компонент | Прогресс | Проблема |
 |-----------|----------|----------|
-| **JsonActualizer** | 0% | Не начат |
+| **JsonValidator** | 0% | Следующая задача: Этап 8 |
 
 ### Not Started (❌)
 
 | Компонент | Приоритет | Блокирует |
 |-----------|-----------|-----------|
-| **ValueGenerator** | ✅ | 34 теста, покрытие 94%. Реализован 2026-05-14. |
-| **JsonActualizer** | 0% | Не начат |
-| **JsonValidator** | P1 | Валидацию JSON по схеме + SpEL |
 | **ScenarioGenerator** | P1 | Комбинаторику сценариев |
+| **JsonValidator** | P0 | Валидацию JSON по схеме + SpEL |
 | **CLI команды** | P1 | Пользовательский интерфейс |
 
 ---
@@ -93,7 +93,7 @@
 
 ## Roadmap Priorities
 
-### ✅ Завершено (Этапы 0–5)
+### ✅ Завершено (Этапы 0–7)
 
 | # | Задача | Статус | Тесты |
 |---|--------|--------|-------|
@@ -101,19 +101,19 @@
 | 2 | ConditionEvaluator | ✅ Complete | 38 тестов |
 | 3 | ConditionalValidator | ✅ Complete | 36 тестов |
 | 4 | SpelFunctions (34/34) | ✅ Complete | — |
+| 5 | ValueGenerator | ✅ Complete | 34 теста (94% покрытие) |
+| 6 | JsonActualizer | ✅ Complete | — |
 
 ### P0 (Blockers) — Критично для MVP
 
 | # | Задача | Оценка | Зависимости | Статус |
 |---|--------|--------|-------------|--------|
-| 5 | ValueGenerator (leaf-поля, UUID cache, Faker, ИНН/СНИЛС/телефон) | 2 дня | — | 🟡 Спека утверждена, готов к реализации |
-| 6 | JsonActualizer | 3 дня | ValueGenerator | 🔴 Не начат |
+| 7 | JsonValidator | 2 дня | ConditionalValidator | 🔴 Не начат |
 
 ### P1 (MVP) — Релиз
 
 | # | Задача | Оценка | Зависимости |
 |---|--------|--------|-------------|
-| 7 | JsonValidator | 2 дня | ConditionalValidator |
 | 8 | ScenarioGenerator | 3 дня | Лист 19, ValueGenerator |
 | 9 | CLI команды | 2 дня | Все выше |
 

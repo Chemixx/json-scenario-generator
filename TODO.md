@@ -1,8 +1,8 @@
 # TODO: json-scenario-generator
 
-**Последнее обновление:** 2026-05-14  
-**Прогресс MVP:** 75-80%  
-**Тестов:** 281 passed (100%)  
+**Последнее обновление:** 2026-05-17  
+**Прогресс MVP:** ~85%  
+**Тестов:** 320 passed (100%)  
 **Релиз v0.1.0:** В работе  
 **TD-7:** ✅ Исправлено (устаревшие ссылки в документации обновлены)
 
@@ -11,7 +11,7 @@
 ## 🎯 Критический путь MVP
 
 ```
-ConditionEvaluator ✅ → ConditionalValidator ✅ → ValueGenerator (P0) → JsonActualizer (P0) → JsonValidator (P1) → CLI actualize (P1)
+ConditionEvaluator ✅ → ConditionalValidator ✅ → ValueGenerator ✅ → JsonActualizer ✅ → JsonValidator (P0) → CLI actualize (P1)
 ```
 
 ---
@@ -27,6 +27,8 @@ ConditionEvaluator ✅ → ConditionalValidator ✅ → ValueGenerator (P0) → 
 | **Этап 3** | SpEL AST и Parser | `SpelAST`, `SpelParser` | 20 | ✅ 100% |
 | **Этап 4** | SpEL Functions | `SpelFunctions` (34/34) | — | ✅ 100% |
 | **Этап 5** | ConditionEvaluator + Validator | `ConditionEvaluator`, `ConditionalValidator` | 74 | ✅ 100% |
+| **Этап 6** | ValueGenerator | `ValueGenerator` | 34 | ✅ 100% |
+| **Этап 7** | JsonActualizer | `JsonActualizer` | — | ✅ 100% |
 
 ### Детали завершённых компонентов
 
@@ -45,15 +47,15 @@ ConditionEvaluator ✅ → ConditionalValidator ✅ → ValueGenerator (P0) → 
 
 ---
 
-## 🔴 P0 — Критично для MVP (следующие 2 недели)
+## ✅ Завершённые этапы (0-7)
 
-### Этап 6: ValueGenerator
+### Этап 6: ValueGenerator ✅
 
-**Файлы для создания:**
-- `src/core/value_generator.py`
-- `tests/unit/core/test_value_generator.py`
+**Файлы:**
+- `src/core/value_generator.py` ✅
+- `tests/unit/core/test_value_generator.py` ✅ (34 теста, покрытие 94%)
 
-**Требования:**
+**Реализовано:**
 - [x] Генерация значений для leaf-типов: string, integer, number, boolean, array (object — OUT OF SCOPE)
 - [x] UUID-кэширование: external `Dict[str, str]` в `GeneratorConfig` (по `field_name`), stateless
 - [x] Интеграция с Faker (два режима: готовый объект или создание из `locale`)
@@ -62,32 +64,37 @@ ConditionEvaluator ✅ → ConditionalValidator ✅ → ValueGenerator (P0) → 
 - [x] Array-генерация: `max(minItems, default_array_size)` элементов, рекурсивно по `items`
 - [x] Constraints: minLength, maxLength, minimum, maximum, pattern, enum
 - [x] 34 unit-теста, покрытие 94%
+- [x] Seed-изоляция: собственный `random.Random()` для воспроизводимости
 - [ ] Placeholder-режим — отложено (нет бизнес-кейса)
-- [ ] Object-рекурсия — отложено (обязанность JsonActualizer/ScenarioGenerator)
+- [ ] Object-рекурсия — отложено (обязанность ScenarioGenerator)
 
-**Оценка:** 2 дня
-
----
-
-### Этап 7: JsonActualizer
-
-**Файлы для создания:**
-- `src/core/json_actualizer.py`
-- `tests/unit/core/test_json_actualizer.py`
-
-**Требования:**
-- [ ] Применение SchemaDiff к JSON
-- [ ] Добавление новых полей (с генерацией значений через ValueGenerator)
-- [ ] Удаление полей из JSON
-- [ ] Преобразование типов полей
-- [ ] Сохранение существующих значений
-- [ ] 25+ unit-тестов
-
-**Оценка:** 3 дня
+**Оценка:** 2 дня ✅ завершено 2026-05-14
 
 ---
 
-### Этап 8: JsonValidator
+### Этап 7: JsonActualizer ✅
+
+**Файлы:**
+- `src/core/json_actualizer.py` ✅
+- `tests/unit/core/test_json_actualizer.py` ✅
+
+**Реализовано:**
+- [x] Применение SchemaDiff к JSON
+- [x] Добавление новых полей (с генерацией значений через ValueGenerator)
+- [x] Удаление полей из JSON
+- [x] Преобразование типов полей
+- [x] Сохранение существующих значений
+- [x] Unit-тесты
+
+**Оценка:** 3 дня ✅ завершено 2026-05-17
+
+---
+
+## 🔴 P0 — Критично для MVP
+
+---
+
+### Этап 8: JsonValidator (P0)
 
 **Файлы для создания:**
 - `src/core/json_validator.py`
@@ -285,8 +292,8 @@ src/core/
 ├── condition_evaluator.py   ✅ 38 тестов
 ├── conditional_validator.py ✅ 36 тестов
 ├── schema_comparator.py     ✅
-├── value_generator.py       🔴 TODO
-├── json_actualizer.py       🔴 TODO
+├── value_generator.py       ✅ 34 теста, 94%
+├── json_actualizer.py       ✅
 ├── json_validator.py        🔴 TODO
 └── scenario_generator.py    🟡 TODO
 ```
@@ -335,11 +342,11 @@ tests/
 | Метрика | Значение |
 |---------|----------|
 | **Файлов кода** | ~40 .py файлов |
-| **Unit-тестов** | 247 passed |
+| **Unit-тестов** | 320 passed |
 | **Покрытие ядра** | ~85% (оценка) |
 | **SpEL операторов** | 34/34 (100%) |
 | **SpEL функций** | 34/34 (100%) |
-| **Готовность MVP** | 75-80% |
+| **Готовность MVP** | ~85% |
 
 ---
 
@@ -349,8 +356,8 @@ tests/
 graph TD
     A[SpelParser ✅] --> B[ConditionEvaluator ✅]
     B --> C[ConditionalValidator ✅]
-    C --> D[ValueGenerator]
-    D --> E[JsonActualizer]
+    C --> D[ValueGenerator ✅]
+    D --> E[JsonActualizer ✅]
     E --> F[JsonValidator]
     F --> G[CLI actualize]
     D --> H[ScenarioGenerator]
@@ -438,15 +445,15 @@ ValueGenerator должен принимать параметр **версии +
 
 ## 📝 Чек-лист перед релизом v0.1.0
 
-- [ ] ValueGenerator реализован и протестирован
-- [ ] JsonActualizer реализован и протестирован
+- [x] ValueGenerator реализован и протестирован
+- [x] JsonActualizer реализован и протестирован
 - [ ] JsonValidator реализован и протестирован
 - [ ] CLI команды работают
 - [ ] Все интеграционные тесты проходят
 - [x] Технический долг TD-7, TD-8 исправлен
-- [ ] Документация обновлена
-- [ ] CHANGELOG.md актуализирован
-- [ ] Все 247 существующих тестов проходят
+- [x] Документация обновлена (2026-05-16)
+- [x] CHANGELOG.md актуализирован
+- [ ] Все 320 существующих тестов проходят
 
 ---
 

@@ -1,9 +1,58 @@
+## MemPalace — настройки проекта
+
+### Wake-up
+
+Если хук SessionStart, который автоматически вызывает mempalace wake-up при старте сессии, не сработал (убедиться в этом), перед началом работы над проектом выполните:
+`mempalace wake-up --wing json-scenario-generator`
+
+Это загрузит контекст последних сессий (600-900 токенов).
+
+### Wing и Rooms
+
+- **Wing:** `json-scenario-generator` (дефис, **НЕ** подчёркивание — не путать с `json_scenario_generator`)
+- **Rooms:** `architecture`, `technical`, `planning`, `general`
+
+### Правила записи
+
+| Тип информации | Room | Пример |
+|----------------|------|--------|
+| Архитектурные решения | `architecture` | Выбор структуры AST, паттерны слоёв |
+| Технические детали, рецепты | `technical` | SpEL-операторы, формат ИНН/СНИЛС |
+| Планы, дорожные карты | `planning` | Этапы реализации, приоритеты |
+| Всё остальное | `general` | Контекст сессий, заметки |
+
+### Knowledge Graph
+
+При появлении новых компонентов/модулей — добавлять в KG:
+```
+mcp__mempalace__mempalace_kg_add(subject, predicate, object)
+```
+Примеры: `(ValueGenerator, depends_on, SpelFunctions)`, `(ConditionEvaluator, validates, УО-поля)`
+
+### Diary
+
+В конце каждой сессии записывать итоги:
+```
+mcp__mempalace__mempalace_diary_write(
+  agent_name="claude",
+  wing="json-scenario-generator",
+  entry="AAAK-compressed summary"
+)
+```
+
+### Важно
+
+- **Не создавать** wing `json_scenario_generator` (подчёркивание) — всегда используйте `json-scenario-generator` (дефис)
+- Перед выводами о проекте — проверяйте KG: `mempalace_kg_query(entity="json-scenario-generator")`
+
+---
+
 # CLAUDE.md — Контекст проекта json-scenario-generator
 
-**Последнее обновление:** 2026-05-13  
+**Последнее обновление:** 2026-05-17  
 **Текущая версия:** v0.1.0-dev  
-**Прогресс MVP:** ~75-80%  
-**Тестов:** 247 passed (100%)
+**Прогресс MVP:** ~80-85%  
+**Тестов:** 320 passed (100%)
 
 ---
 
@@ -11,12 +60,13 @@
 
 ### Тесты
 ```bash
-pytest                          # Все тесты (247 passed)
+pytest                          # Все тесты (320 passed)
 pytest -v                       # Подробный вывод
 pytest --cov=src                # С покрытием
 pytest tests/unit/core/test_condition_evaluator.py -v   # ConditionEvaluator (38 тестов)
 pytest tests/unit/core/test_conditional_validator.py -v   # ConditionalValidator (36 тестов)
 pytest tests/unit/core/test_spel_parser.py -v             # SpelParser (20 тестов)
+pytest tests/unit/core/test_json_actualizer.py -v           # JsonActualizer (39 тестов)
 ```
 
 ### Линт / Формат / Типы
@@ -51,9 +101,9 @@ cp .env.example .env
 
 ## 🎯 Текущий статус
 
-**Завершено:** Этапы 0-6 ✅  
-**В работе:** Этап 7 — JsonActualizer 🟡  
-**Следующее:** JsonValidator → CLI
+**Завершено:** Этапы 0-7 ✅  
+**В работе:** Этап 8 — JsonValidator 🟡  
+**Следующее:** CLI → ScenarioGenerator
 
 ### Прогресс по этапам
 
@@ -66,8 +116,8 @@ cp .env.example .env
 ✅ Этап 4: SpEL Functions (34/34)               100%
 ✅ Этап 5: ConditionEvaluator + Validator       100%
 ✅ Этап 6: ValueGenerator                       100%   ← ЗАВЕРШЁН
-🟡 Этап 7: JsonActualizer                      0%    ← ТЕКУЩИЙ ФОКУС
-🟡 Этап 8: JsonValidator                       0%
+✅ Этап 7: JsonActualizer                      100%   ← ЗАВЕРШЁН
+🟡 Этап 8: JsonValidator                       0%    ← ТЕКУЩИЙ ФОКУС
 🟡 Этап 9: CLI команды                         0%
 🟡 Этап 10: ScenarioGenerator                  0%
 🟡 Этап 11: SpelFormatter                      0%    ← P2 (Post-MVP)
@@ -85,6 +135,7 @@ cp .env.example .env
 | `src/core/spel_parser.py` | ✅ | Парсинг SpEL → AST, 34 оператора |
 | `src/core/spel_functions.py` | ✅ | 34/34 функции (Date, String, Business) |
 | `src/core/value_generator.py` | ✅ | Генератор значений, 34 теста, покрытие 94% |
+| `src/core/json_actualizer.py` | ✅ | Актуализация JSON по SchemaDiff, 39 тестов, покрытие 70% |
 | `src/core/condition_evaluator.py` | ✅ | Выполнение AST, 38 тестов |
 | `src/core/conditional_validator.py` | ✅ | Валидация УО полей, 36 тестов |
 | `src/formatters/spel_formatter.py` | 🟡 | Форматирование SpEL → человекочитаемый текст (P2) |
@@ -107,7 +158,8 @@ cp .env.example .env
 - `tests/unit/core/test_condition_evaluator.py` — 38 тестов ✅
 - `tests/unit/core/test_conditional_validator.py` — 36 тестов ✅
 - `tests/unit/core/test_spel_parser.py` — 20 тестов ✅
-- **Всего:** 247 тестов проходят (100%)
+- `tests/unit/core/test_json_actualizer.py` — 39 тестов ✅
+- **Всего:** 320 тестов проходят (100%)
 
 ---
 
@@ -115,38 +167,27 @@ cp .env.example .env
 
 ### P0 — Критично для MVP
 
-1. **ValueGenerator** (`src/core/value_generator.py`)
-   - Генерация значений для типов: string, integer, number, boolean, array, object
-   - Кэширование UUID (одно значение на сценарий)
-   - Интеграция с Faker
-   - Форматирование: даты, ИНН, UUID, телефоны, СНИЛС
-   - Тесты: `tests/unit/core/test_value_generator.py`
-
-2. **JsonActualizer** (`src/core/json_actualizer.py`)
-   - Применение SchemaDiff к JSON
-   - Добавление/удаление/преобразование полей
-   - Сохранение существующих значений
-   - Тесты: `tests/unit/core/test_json_actualizer.py`
-
-3. **JsonValidator** (`src/core/json_validator.py`)
+1. **JsonValidator** (`src/core/json_validator.py`)
    - Двойная валидация: JSON Schema + SpEL
    - Проверка обязательных (О) и УО полей
    - Тесты: `tests/unit/core/test_json_validator.py`
 
+2. ~~**JsonActualizer** (`src/core/json_actualizer.py`)~~ ✅ ЗАВЕРШЁН
+
 ### P1 — MVP релиз
 
-4. **CLI команды** (`src/cli/commands/`)
+3. **CLI команды** (`src/cli/commands/`)
    - `actualize` — актуализация JSON по diff
    - `validate` — валидация JSON по схеме + SpEL
 
-5. **ScenarioGenerator** (`src/core/scenario_generator.py`)
+4. **ScenarioGenerator** (`src/core/scenario_generator.py`)
    - Комбинаторика по 8 параметрам
    - Интеграция с Лист 19 (Excel)
    - Генерация min/max сценариев
 
 ### P2 — Post-MVP
 
-6. **SpelFormatter** (`src/formatters/spel_formatter.py`)
+5. **SpelFormatter** (`src/formatters/spel_formatter.py`)
    - Преобразование сырых SpEL-выражений в читаемый текст для отчётов
    - 3 уровня детализации (SHORT/MEDIUM/DETAILED)
    - Интеграция с DictionaryLoader для расшифровки кодов
@@ -161,7 +202,7 @@ cp .env.example .env
 | ID | Проблема | Приоритет | Файлы |
 |----|----------|-----------|-------|
 | TD-7 | Устаревшие ссылки в документации | ✅ | Обновлены все документы |
-| TD-8 | Wrong JSON Schema Draft | 🟠 | `json_utils.py:11, 165` |
+| TD-8 | Wrong JSON Schema Draft | ✅ | Исправлено: Draft7 → Draft 2019-09 (11.05.2026) |
 | TD-9 | No integration tests | 🟡 | `tests/integration/` пуст |
 | TD-10 | No test fixtures | 🟡 | `tests/fixtures/` пуст |
 | TD-11 | Backup files в репо | 🟡 | 6 `.backup` файлов |
@@ -175,6 +216,8 @@ cp .env.example .env
 - SpelFunctions incomplete (34/34 функции)
 - ConditionEvaluator missing (38 тестов)
 - ConditionalValidator missing (36 тестов)
+- TD-7: Устаревшие ссылки в документации
+- TD-8: Wrong JSON Schema Draft → исправлено на Draft 2019-09 (11.05.2026)
 
 ---
 
@@ -211,7 +254,7 @@ CLI / Scripts → ReportFormatter → ChangeAnalyzer → SchemaComparator → Pa
 
 ```bash
 # Все тесты
-pytest                          # 247 passed
+pytest                          # 320 passed
 
 # Подробный вывод
 pytest -v
@@ -223,6 +266,7 @@ pytest --cov=src
 pytest tests/unit/core/test_condition_evaluator.py -v
 pytest tests/unit/core/test_conditional_validator.py -v
 pytest tests/unit/core/test_spel_parser.py -v
+pytest tests/unit/core/test_json_actualizer.py -v
 ```
 
 ---
@@ -281,6 +325,7 @@ CallRPAC
 1. **Grilling-решения по ValueGenerator:** зафиксированы архитектурные решения через `/context-mode:grill-me`.
 2. **Обновление спецификации:** `.planning/VALUEGENERATOR_SPEC.md` актуализирована с учётом решений.
 3. **Обновление TODO.md и CLAUDE.md:** даты и требования синхронизированы.
+4. **Реализация JsonActualizer (Phase 7):** Создан модуль `src/core/json_actualizer.py` с 39 тестами.
 
 ### Ключевые решения (ValueGenerator)
 - **Separation of concerns:** ValueGenerator генерирует значения, но **не решает О/УО/Н** — это ConditionalValidator/ScenarioGenerator.
