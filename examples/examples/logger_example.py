@@ -2,6 +2,7 @@
 Пример использования логгера
 """
 from src.utils.logger import log, log_function_call, LogBlock
+from src.utils.icons import Icon
 
 
 def main():
@@ -11,20 +12,20 @@ def main():
     # 1. Обычное логирование
     # ======================================
     log.info("=" * 80)
-    log.info("📝 Примеры логирования")
+    log.info(f"{Icon.NOTE} Примеры логирования")
     log.info("=" * 80)
 
-    log.debug("🐛 Debug: детальная информация для отладки")
-    log.info("ℹ️  Info: общая информация о работе приложения")
-    log.warning("⚠️  Warning: предупреждение о потенциальной проблеме")
-    log.error("❌ Error: ошибка, которая не останавливает приложение")
-    log.success("✅ Success: успешное выполнение операции")
+    log.debug(f"{Icon.BUG} Debug: детальная информация для отладки")
+    log.info(f"{Icon.INFO}  Info: общая информация о работе приложения")
+    log.warning(f"{Icon.WARNING}  Warning: предупреждение о потенциальной проблеме")
+    log.error(f"{Icon.ERROR} Error: ошибка, которая не останавливает приложение")
+    log.success(f"{Icon.SUCCESS} Success: успешное выполнение операции")
 
     # ======================================
     # 2. Использование декоратора
     # ======================================
     log.info("\n" + "=" * 80)
-    log.info("🎨 Пример декоратора @log_function_call")
+    log.info(f"{Icon.STYLE} Пример декоратора @log_function_call")
     log.info("=" * 80)
 
     @log_function_call
@@ -39,7 +40,7 @@ def main():
     # 3. Использование контекстного менеджера
     # ======================================
     log.info("\n" + "=" * 80)
-    log.info("📦 Пример контекстного менеджера LogBlock")
+    log.info(f"{Icon.PKG} Пример контекстного менеджера LogBlock")
     log.info("=" * 80)
 
     with LogBlock("Загрузка и обработка данных"):
@@ -55,7 +56,7 @@ def main():
     # 4. Логирование структурированных данных
     # ======================================
     log.info("\n" + "=" * 80)
-    log.info("📊 Логирование структурированных данных")
+    log.info(f"{Icon.STAT} Логирование структурированных данных")
     log.info("=" * 80)
 
     schema_info = {
@@ -70,7 +71,7 @@ def main():
     # 5. Обработка ошибок
     # ======================================
     log.info("\n" + "=" * 80)
-    log.info("🚨 Пример логирования ошибок")
+    log.info(f"{Icon.CRITICAL} Пример логирования ошибок")
     log.info("=" * 80)
 
     try:
@@ -83,8 +84,8 @@ def main():
     # Финал
     # ======================================
     log.info("\n" + "=" * 80)
-    log.success("🎉 Все примеры выполнены успешно!")
-    log.info(f"📁 Логи сохранены в: {config.LOG_DIR / config.LOG_FILE}")
+    log.success(f"{Icon.DONE} Все примеры выполнены успешно!")
+    log.info(f"{Icon.DIRECTORY} Логи сохранены в: {config.LOG_DIR / config.LOG_FILE}")
     log.info("=" * 80)
 
 
