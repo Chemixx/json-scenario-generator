@@ -6,6 +6,7 @@ import re
 
 from ..models import FieldMetadata, SchemaDiff, FieldChange
 from ..utils import get_logger
+from ..utils.icons import Icon
 
 logger = get_logger(__name__)
 
@@ -84,7 +85,7 @@ class SchemaComparator:
         old_label = old_name if old_name else old_version
         new_label = new_name if new_name else new_version
         
-        logger.info(f"🔄 Сравнение схем: {old_label} → {new_label}")
+        logger.info(f"{Icon.MODIFICATION} Сравнение схем: {old_label} → {new_label}")
 
         all_paths = set(old_schema.keys()) | set(new_schema.keys())
 
@@ -124,7 +125,7 @@ class SchemaComparator:
                 ))
 
         logger.info(
-            f"📊 Изменения: +{len(added_fields)} полей, "
+            f"{Icon.STAT} Изменения: +{len(added_fields)} полей, "
             f"-{len(removed_fields)} полей, ~{len(modified_fields)} изменений"
         )
 

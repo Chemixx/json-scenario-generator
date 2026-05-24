@@ -24,6 +24,7 @@ from src.models import (
 from src.parsers import SchemaParser
 from src.core import SchemaComparator
 from src.utils import get_logger
+from src.utils.icons import Icon
 
 logger = get_logger(__name__)
 
@@ -70,7 +71,7 @@ class ChangeAnalyzer:
             FileNotFoundError: Если схемы не найдены
             ValidationError: Если схемы невалидны
         """
-        logger.info(f"🔍 Анализ изменений между версиями")
+        logger.info(f"{Icon.FIND} Анализ изменений между версиями")
 
         # Загрузка схем
         old_schema = self.parser.load_schema(old_schema_path)
@@ -104,7 +105,7 @@ class ChangeAnalyzer:
         non_breaking_count = len([c for c in analyzed_changes if c.breaking_level == BreakingLevel.NON_BREAKING])
 
         logger.info(
-            f"✅ Анализ завершен: {breaking_count} breaking, {non_breaking_count} non-breaking"
+            f"{Icon.SUCCESS} Анализ завершен: {breaking_count} breaking, {non_breaking_count} non-breaking"
         )
 
         return AnalysisResult(

@@ -236,7 +236,7 @@ class SpelFunctions:
 
         Проверка, что значение есть в справочнике.
 
-        ⚠️ Требует загрузки справочника через DictionaryLoader!
+        [WARN] Требует загрузки справочника через DictionaryLoader!
 
         Args:
             value: Значение для проверки
