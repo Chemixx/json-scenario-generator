@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.analyzers import ChangeAnalyzer
 from src.models import AnalysisResult, ImpactLevel
 from src.utils import get_logger
+from src.utils.icons import Icon
 from src.formatters import ReportFormatter
 
 logger = get_logger(__name__)
@@ -105,24 +106,31 @@ def save_json_report(result: AnalysisResult, output_path: Path):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
 
-    logger.info(f"✅ Отчет сохранен: {output_path}")
+    logger.info(f"{Icon.SUCCESS} Отчет сохранен: {output_path}")
 
 
 def main():
     """Главная функция"""
+    # Encoding safety: предотвратить UnicodeEncodeError на cp1251
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except (OSError, ValueError):
+            pass
+
     args = parse_arguments()
 
     # Проверка существования файлов
     if not args.old_schema.exists():
-        logger.error(f"❌ Файл не найден: {args.old_schema}")
+        logger.error(f"{Icon.ERROR} Файл не найден: {args.old_schema}")
         sys.exit(1)
 
     if not args.new_schema.exists():
-        logger.error(f"❌ Файл не найден: {args.new_schema}")
+        logger.error(f"{Icon.ERROR} Файл не найден: {args.new_schema}")
         sys.exit(1)
 
     # Анализ изменений
-    logger.info("🔍 Анализ изменений между версиями...")
+    logger.info(f"{Icon.INFO} Анализ изменений между версиями...")
     logger.info(f"   Старая: {args.old_schema}")
     logger.info(f"   Новая: {args.new_schema}")
 
@@ -184,14 +192,14 @@ def main():
 
         # Код возврата
         if result.has_critical_changes():
-            logger.warning(f"⚠️  Найдено {len(result.critical_changes)} критических изменений!")
+            logger.warning(f"{Icon.WARNING} Найдено {len(result.critical_changes)} критических изменений!")
             sys.exit(1)
         else:
-            logger.info("✅ Анализ завершен успешно")
+            logger.info(f"{Icon.SUCCESS} Анализ завершен успешно")
             sys.exit(0)
 
     except Exception as e:
-        logger.error(f"❌ Ошибка при анализе: {e}")
+        logger.error(f"{Icon.ERROR} Ошибка при анализе: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
