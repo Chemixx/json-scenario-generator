@@ -1,6 +1,6 @@
 # Project State: json-scenario-generator
 
-**Analysis Date:** 2026-05-17
+**Analysis Date:** 2026-05-22
 
 ## Executive Summary
 
@@ -8,7 +8,7 @@
 
 **Цель:** Заменить ручную работу QA-инженеров (3–5 дней на релиз) автоматической актуализацией за минуты.
 
-**Текущий статус:** ~85% готовности. Этапы 0–7 завершены (инфраструктура, парсеры, анализаторы, SpEL AST/Parser/Evaluator/Functions, ConditionalValidator, ValueGenerator, JsonActualizer). **320 тестов проходят**. Этап 8 (JsonValidator) — следующий.
+**Текущий статус:** ~90% готовности. Этапы 0–8 завершены (инфраструктура, парсеры, анализаторы, SpEL AST/Parser/Evaluator/Functions, ConditionalValidator, ValueGenerator, JsonActualizer, JsonValidator). **400+ тестов проходят**. Этап 9 (CLI) — следующий.
 
 **Репозиторий:** https://github.com/Chemixx/json-scenario-generator
 
@@ -42,20 +42,20 @@
 | **ConditionalValidator** | ✓ | 36 тестов, УО-валидация |
 | **ValueGenerator** | ✓ | 34 теста, покрытие 94% |
 | **JsonActualizer** | ✓ | Применение SchemaDiff к JSON |
-| **Unit тесты** | ✓ | **320 тестов проходят** |
+| **JsonValidator** | ✓ | 5 шагов валидации, 59 тестов |
+| **Unit тесты** | ✓ | **400+ тестов проходят** |
 
 ### In Progress (⚠️)
 
 | Компонент | Прогресс | Проблема |
 |-----------|----------|----------|
-| **JsonValidator** | 0% | Следующая задача: Этап 8 |
+| — | — | — |
 
 ### Not Started (❌)
 
 | Компонент | Приоритет | Блокирует |
 |-----------|-----------|-----------|
 | **ScenarioGenerator** | P1 | Комбинаторику сценариев |
-| **JsonValidator** | P0 | Валидацию JSON по схеме + SpEL |
 | **CLI команды** | P1 | Пользовательский интерфейс |
 
 ---
@@ -74,6 +74,24 @@
 | 6 | **ConditionalValidator не реализован** | ✅ Исправлено (36 тестов) |
 | 7 | **Устаревшие ссылки в документации** | ✅ Исправлено (08.05.2026) |
 
+### Active (⚠️)
+
+| # | Проблема | Приоритет | Влияние |
+|---|----------|-----------|---------|
+| TD-13 | **SpEL-контекст для УО-полей в JsonActualizer** | ✅ Исправлено (24.05.2026) | Делегировано `ConditionalValidator._build_context()`, добавлен `field_path`, 4 теста без моков |
+| TD-14 | **Покрытие JsonActualizer 70%** | 🟡 Средний | Не покрыты: `actualize_from_paths`, `_StructureError`. ~~`_validate_result`~~ удалён в Phase 8 (заменён на JsonValidator) |
+| TD-15 | **`__import__('re')` в `_validate_value`** | ✅ Исправлено | `_validate_value` теперь использует `constraint_utils.check_constraint()` |
+| TD-16 | **Emoji в runtime-коде ломают Windows-консоль** | ✅ Исправлено (24.05.2026) | `src/utils/icons.py` создан (31 ASCII-константа), 160 эмодзи → Icon, `format_text()` → ASCII, `format_markdown()` → emoji, `to_icon()` в enums, `sys.stdout.reconfigure()` safety net |
+| TD-17 | **Loguru логи смешаны с отчётом в STDOUT** | 🟡 Средний | 20+ строк INFO/DEBUG перед полезным выводом. Решение: CLI → WARNING в STDERR, INFO в файл; ReportFormatter → только STDOUT |
+| TD-18 | **`affected_scenarios` всегда `[]`** | 🟡 Средний | ChangeAnalyzer: 18/18 changes с пустым списком. Нужен анализ: убрать поле или заполнять из SpEL-условий |
+| TD-19 | **Шаблонные рекомендации в отчёте** | 🔵 Низкий | ReportFormatter: 30/51 рекомендаций — «Проверить условие». Нужен анализ: что показывать вместо этого |
+| TD-20 | **Обрезанные SpEL-условия в отчёте** | 🟠 Высокий | ReportFormatter: ключевые productCdExt обрезаются `...`. Теряется критически важная информация |
+| TD-21 | **Exit code 0 при breaking changes** | 🔵 Низкий | analyze_changes.py: `sys.exit(1)` только при `critical`, но `breaking` ≠ `critical`. Нужен анализ exit code логики |
+| TD-9 | **No integration tests** | 🟡 Средний | `tests/integration/` пуст |
+| TD-10 | **No test fixtures** | 🟡 Средний | `tests/fixtures/` пуст |
+| TD-11 | **Backup files в репо** | ✅ Низкий | Удалены 6 `.backup` файлов (19.05.2026) |
+| TD-12 | **Deprecated code в src/** | 🟡 Низкий | `src/deprecated/` |
+
 ### High (🟠) — Скоро фиксить
 
 | # | Проблема | Файлы | Влияние |
@@ -86,7 +104,7 @@
 |---|----------|---------|
 | 3 | **No integration tests** | `tests/integration/` пуст |
 | 4 | **No test fixtures** | `tests/fixtures/` пуст |
-| 5 | **Backup files в репо** | 6 `.backup` файлов |
+| 5 | **Backup files в репо** | ✅ Удалены (19.05.2026) |
 | 6 | **Deprecated code в src/** | `src/deprecated/` смешан с активным кодом |
 
 ---
@@ -108,7 +126,7 @@
 
 | # | Задача | Оценка | Зависимости | Статус |
 |---|--------|--------|-------------|--------|
-| 7 | JsonValidator | 2 дня | ConditionalValidator | 🔴 Не начат |
+| 8 | JsonValidator | 2 дня | JsonValidator | ✅ Complete 59 тестов |
 
 ### P1 (MVP) — Релиз
 

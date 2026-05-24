@@ -94,11 +94,18 @@
 
 **Delivered:**
 - `src/core/json_actualizer.py` — применение SchemaDiff к JSON
-- `tests/unit/core/test_json_actualizer.py` — unit-тесты
-- Добавление новых полей (с генерацией значений через ValueGenerator)
+- `tests/unit/core/test_json_actualizer.py` — 39 тестов, покрытие 70%
+- Добавление новых полей (О/УО/Н) с генерацией через ValueGenerator
 - Удаление полей из JSON
-- Преобразование типов полей
-- Сохранение существующих значений
+- Модификация полей: сохранение/перегенерация/преобразование типов
+- Обнаружение переименований (эвристика ≥3/5 + field_mapping)
+- 3 уровня отката: field/full/none
+- Изоляция модуля: actualize() не бросает исключения наружу
+
+**Технический долг:**
+- TD-13: ~~SpEL-контекст для УО-полей~~ — ✅ ИСПРАВЛЕНО (24.05.2026): делегировано `ConditionalValidator._build_context()`, добавлен `field_path`, 4 теста без моков
+- TD-14: Покрытие 70% вместо 90% (не покрыты actualize_from_paths, StructureError)
+- TD-15: `__import__('re')` в `_validate_value` — заменить на явный импорт
 
 ---
 
@@ -147,6 +154,7 @@
 | TD-4 | ConditionEvaluator missing | ✅ Fixed (38 tests) |
 | TD-5 | ConditionalValidator missing | ✅ Fixed (36 tests) |
 | TD-6 | SpelFunctions incomplete | ✅ Fixed (34/34 functions) |
+| TD-16 | Emoji в runtime-коде ломают Windows-консоль | ✅ Fixed (24.05.2026) | Icon module, 160 emoji → ASCII, cp1251 safety net |
 
 ### Active 🔴🟠🟡
 
@@ -156,5 +164,5 @@
 | TD-8 | Wrong JSON Schema Draft | ✅ Fixed (11.05.2026) | `src/utils/json_utils.py` — заменён Draft7Validator на Draft201909Validator |
 | TD-9 | No integration tests | 🟡 | `tests/integration/` пуст |
 | TD-10 | No test fixtures | 🟡 | `tests/fixtures/` пуст |
-| TD-11 | Backup files в репо | 🟡 | 6 `.backup` файлов |
+| TD-11 | Backup files в репо | ✅ | Удалены 6 `.backup` файлов (19.05.2026) |
 | TD-12 | Deprecated code в src/ | 🟡 | `src/deprecated/` |

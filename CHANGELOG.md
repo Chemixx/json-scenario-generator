@@ -7,6 +7,48 @@
 
 ---
 
+## [Unreleased] - 2026-05-24
+
+### Added
+- **Icon module** (`src/utils/icons.py`): 31 ASCII-констант для безопасного вывода в любую кодировку (cp1251-safe). Заменяют эмодзи в runtime-коде.
+- **`to_icon()` methods** в `BreakingLevel` и `ImpactLevel`: возвращают ASCII-иконки (`[WARN]`, `[OK]`, `[!!!]`, `[!!]`, `[!]`, `[.]`) для консольного вывода.
+- **Encoding safety net** в `logger.py` и `analyze_changes.py`: `sys.stdout.reconfigure(encoding='utf-8', errors='replace')` предотвращает `UnicodeEncodeError`.
+
+### Changed
+- **TD-16 fixed**: 160 эмодзи в runtime-коде заменены на ASCII-константы из `Icon`. `format_text()` использует Icon, `format_markdown()` сохраняет эмодзи (безопасно — записывает в файл с `encoding='utf-8'`).
+- Заменены эмодзи в 18 файлах: `logger.py`, `report_formatter.py`, `dictionary_loader.py`, `json_utils.py`, `excel_utils.py`, `enums.py`, `schema_models.py`, `schema_parser.py`, `change_analyzer.py`, `schema_comparator.py`, `spel_functions.py`, `analyze_changes.py`, `setup_project.py`, `logger_example.py` + 4 тестовых файла.
+- 423 теста пройдены, 0 падений. Все Icon-константы cp1251-safe.
+
+### Known Issues
+- **JsonValidator** (Phase 8): New module `src/core/json_validator.py`
+  - `JsonValidator` class with `validate()`, `validate_batch()`, `validate_from_paths()` methods
+  - 5 independent validation steps: schema (Draft201909Validator), required (О), conditional (УО), constraints, dictionaries
+  - `ValidatorConfig`: step configuration, strict/lenient, DQ codes, output format (tree/flat)
+  - Error hierarchy: `BaseValidationError` + `SchemaError`, `RequiredError`, `ConditionalError`, `ConstraintError`, `DictionaryError`
+  - `ValidationResult` with `to_summary(format)` (tree/flat) and `to_dict()`
+  - `ValidationStatistics` with field counts, error counts, duration
+  - `requirement_type` (null/missing) on `RequiredError` and `ConditionalError`
+  - Auto-detect call from schema metadata (stageName/version/direction) in `validate_from_paths()`
+- **constraint_utils.py**: Shared constraint checking (10 types: minLength, maxLength, pattern, minimum, maximum, minItems, maxItems, enum, maxIntLength, maxFracLength)
+- DQ field parsing in SchemaParser: `alwaysRequiredDqCode`, `conditionalDqCode`, `dictionaryDqCode`
+- `requirement_type` field (null/missing) on `ConditionalValidator.ValidationError`
+- 85 new tests (59 for JsonValidator, 26 for constraint_utils)
+
+### Changed
+- **TD-13 fixed**: `JsonActualizer._evaluate_condition()` now delegates context building to `ConditionalValidator._build_context()`, correctly resolving `#this`, `parent`, `parent2` SpEL navigation. Added `field_path` parameter. 4 new tests without mocks.
+- `JsonActualizer._validate_result()` removed — `JsonValidator` is the single validation point
+- `JsonActualizer._validate_value()` now uses `constraint_utils.check_constraint()`
+- `ActualizationResult.validation_errors` always empty list (no longer populated by JsonActualizer)
+
+### Known Issues
+- **TD-17**: Loguru logs mixed with report output in STDOUT — 20+ lines of INFO/DEBUG before useful output. Fix: CLI should log WARNING+ to STDERR, INFO+ to file.
+- **TD-18**: `affected_scenarios` field always empty in ChangeAnalyzer output (18/18 changes). Needs analysis: remove field or populate from SpEL conditions.
+- **TD-19**: Generic recommendations in reports — 30/51 are template phrases. Needs analysis: show specific product codes instead.
+- **TD-20**: Truncated SpEL conditions in reports lose critical product code values. Key information cut off with `...`.
+- **TD-21**: Exit code 0 despite 15 breaking changes. Script only exits 1 on `critical`, not `breaking`. Needs analysis of exit code logic.
+
+---
+
 ## [0.1.0-dev] - 2026-05-17
 
 ### Added
@@ -23,7 +65,7 @@
   - Exports added to `src/core/__init__.py`
 
 ### Changed
-- Total tests: 281 → 320 passed
+- Total tests: 281 → 320 → 412 passed
 
 ## [Unreleased] — 2026-05-14
 
@@ -32,7 +74,7 @@
 **Инфраструктура** ✅
 - Исправлен pandas leak: `src/utils/__init__.py` не импортирует `excel_utils` автоматически
 - Установлен `pyparsing==3.1.1` для Python 3.14
-- **281 unit-тестов проходят** (было 173 → 247 → 281)
+- **412 unit-тестов проходят** (было 173 → 247 → 281 → 320 → 412)
 
 **SpelAST** ✅ завершён
 - 52 NodeType в `src/core/spel_ast.py`
@@ -106,11 +148,11 @@
 - **Array:** `max(minItems, default_array_size)` элементов, рекурсивно по `items`
 - **Seed-изоляция:** собственный `random.Random()` instance для воспроизводимости
 
-**JsonActualizer** 🔴 Ожидает реализации (Этап 7)
+**JsonActualizer** ✅ Завершён (Этап 7)
 - Применение SchemaDiff к JSON-сценариям
 - Добавление, удаление, преобразование полей
 
-**JsonValidator** 🔴 Ожидает реализации (Этап 8)
+**JsonValidator** ✅ Завершён (Этап 8)
 - Двойная валидация: JSON Schema Draft 2019-09 + SpEL-условия
 
 ### 🔧 Исправлено
@@ -150,7 +192,7 @@
 | TD-8 | `src/utils/json_utils.py` использует `Draft7Validator` вместо `Draft201909Validator` | 🟡 Средняя | ✅ Исправлено (11.05.2026) |
 | TD-9 | Нет интеграционных тестов (только unit-тесты) | 🟡 Средняя | Добавить E2E |
 | TD-10 | Нет test fixtures | 🟡 Низкая | Добавить fixtures |
-| TD-11 | Backup files в репо (.backup) | 🟡 Низкая | Удалить |
+| TD-11 | Backup files в репо (.backup) | ✅ Низкая | Удалены (19.05.2026) |
 | TD-12 | Deprecated code в src/ | 🟡 Низкая | Переместить/удалить |
 
 ---
@@ -206,9 +248,9 @@
 |---------|----------|
 | **Файлов .py** | 60 |
 | **Unit-тестов задекларировано** | 250+ |
-| **Unit-тестов проходит** | **247 (100%)** |
+| **Unit-тестов проходит** | **412 (100%)** |
 | **Этапов завершено** | 5 из 10 (Этапы 0–5 завершены) |
-| **Общий прогресс MVP** | ~75–80% |
+| **Общий прогресс MVP** | ~90% |
 | **Покрытие (этапы 0–2.5)** | 100% |
 | **Покрытие (SpEL)** | 100% (AST ✅, Parser ✅, Evaluator ✅, Functions ✅, Validator ✅) |
 | **SpEL-операторов поддержано** | **34 из 34 (100%)** |
@@ -246,5 +288,5 @@
 ---
 
 <p align="center">
-  <sub>Последнее обновление: 17 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 7 завершён (~80-85% MVP)</sub>
+  <sub>Последнее обновление: 17 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 8 завершён (~90% MVP)</sub>
 </p>
