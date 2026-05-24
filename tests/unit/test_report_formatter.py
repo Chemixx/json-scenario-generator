@@ -13,6 +13,7 @@ import pytest
 from datetime import datetime
 
 from src.formatters import ReportFormatter
+from src.utils.icons import Icon
 from src.models import (
     AnalysisResult,
     AnalyzedChange,
@@ -147,7 +148,7 @@ def test_format_text_basic(sample_result):
     report = formatter.format_text(sample_result, verbose=False)
 
     # Проверяем заголовок
-    assert "📊 ОТЧЕТ ОБ ИЗМЕНЕНИЯХ JSON SCHEMA" in report
+    assert f"{Icon.STAT} ОТЧЕТ ОБ ИЗМЕНЕНИЯХ JSON SCHEMA" in report
     assert "V072Call1Rq" in report
     assert "V073Call1Rq" in report
 
@@ -179,7 +180,7 @@ def test_format_text_critical_section(sample_result):
     report = formatter.format_text(sample_result)
 
     # Проверяем секцию критических изменений
-    assert "🚨 КРИТИЧЕСКИЕ ИЗМЕНЕНИЯ (1):" in report
+    assert f"{Icon.CRITICAL} КРИТИЧЕСКИЕ ИЗМЕНЕНИЯ (1):" in report
     assert "loanRequest/amount" in report
     assert "Поле стало обязательным (Н → О)" in report
 
@@ -190,7 +191,7 @@ def test_format_text_additions_section(sample_result):
     report = formatter.format_text(sample_result)
 
     # Проверяем секцию добавлений
-    assert "➕ ДОБАВЛЕННЫЕ ПОЛЯ (1):" in report
+    assert f"{Icon.ADDITION} ДОБАВЛЕННЫЕ ПОЛЯ (1):" in report
     assert "customerForm/email" in report
     assert "[УО]" in report  # Условно обязательное
 
@@ -201,7 +202,7 @@ def test_format_text_removals_section(sample_result):
     report = formatter.format_text(sample_result)
 
     # Проверяем секцию удалений
-    assert "➖ УДАЛЕННЫЕ ПОЛЯ (1):" in report
+    assert f"{Icon.REMOVAL} УДАЛЕННЫЕ ПОЛЯ (1):" in report
     assert "customerForm/oldField" in report
     assert "[Н]" in report  # Необязательное
 
@@ -212,7 +213,7 @@ def test_format_text_non_breaking_section(sample_result):
     report = formatter.format_text(sample_result)
 
     # Проверяем секцию non-breaking
-    assert "✅ NON-BREAKING ИЗМЕНЕНИЯ (1):" in report
+    assert f"{Icon.SUCCESS} NON-BREAKING ИЗМЕНЕНИЯ (1):" in report
     assert "customerForm/phone" in report
 
 
@@ -222,7 +223,7 @@ def test_format_text_final_recommendation_critical(sample_result):
     report = formatter.format_text(sample_result)
 
     # Проверяем итоговую рекомендацию
-    assert "⚠️  ВНИМАНИЕ: Обнаружены критические изменения!" in report
+    assert f"{Icon.WARNING} ВНИМАНИЕ: Обнаружены критические изменения!" in report
     assert "Требуется обязательное обновление сценариев." in report
 
 
