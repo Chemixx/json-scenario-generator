@@ -834,3 +834,31 @@ def test_impact_level_to_priority():
     assert ImpactLevel.HIGH.to_priority() == 1
     assert ImpactLevel.MEDIUM.to_priority() == 2
     assert ImpactLevel.LOW.to_priority() == 3
+
+
+def test_impact_level_to_icon():
+    """ImpactLevel.to_icon() возвращает ASCII-иконки."""
+    assert ImpactLevel.CRITICAL.to_icon() == "[!!!]"
+    assert ImpactLevel.HIGH.to_icon() == "[!!]"
+    assert ImpactLevel.MEDIUM.to_icon() == "[!]"
+    assert ImpactLevel.LOW.to_icon() == "[.]"
+
+
+def test_breaking_level_to_icon():
+    """BreakingLevel.to_icon() возвращает ASCII-иконки."""
+    assert BreakingLevel.BREAKING.to_icon() == "[WARN]"
+    assert BreakingLevel.NON_BREAKING.to_icon() == "[OK]"
+
+
+def test_impact_level_to_icon_is_cp1251_safe():
+    """Все to_icon() значения должны кодироваться в cp1251."""
+    for level in ImpactLevel:
+        icon = level.to_icon()
+        icon.encode('cp1251')  # не должно вызывать UnicodeEncodeError
+
+
+def test_breaking_level_to_icon_is_cp1251_safe():
+    """Все to_icon() значения должны кодироваться в cp1251."""
+    for level in BreakingLevel:
+        icon = level.to_icon()
+        icon.encode('cp1251')

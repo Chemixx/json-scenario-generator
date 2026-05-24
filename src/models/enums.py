@@ -80,6 +80,14 @@ class BreakingLevel(Enum):
         }
         return mapping[self]
 
+    def to_icon(self) -> str:
+        """ASCII-иконка (безопасна для cp1251)"""
+        mapping = {
+            BreakingLevel.BREAKING: "[WARN]",
+            BreakingLevel.NON_BREAKING: "[OK]"
+        }
+        return mapping[self]
+
 
 class ImpactLevel(Enum):
     """
@@ -122,6 +130,16 @@ class ImpactLevel(Enum):
             ImpactLevel.HIGH: "🟠",
             ImpactLevel.MEDIUM: "🟡",
             ImpactLevel.LOW: "🟢"
+        }
+        return mapping[self]
+
+    def to_icon(self) -> str:
+        """ASCII-иконка (безопасна для cp1251)"""
+        mapping = {
+            ImpactLevel.CRITICAL: "[!!!]",
+            ImpactLevel.HIGH: "[!!]",
+            ImpactLevel.MEDIUM: "[!]",
+            ImpactLevel.LOW: "[.]"
         }
         return mapping[self]
 
