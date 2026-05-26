@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..models import FieldMetadata, ConditionalRequirement
 from ..utils import load_json, get_logger
+from ..utils.icons import Icon
 
 logger = get_logger(__name__)
 
@@ -45,7 +46,7 @@ class SchemaParser:
             >>> print(fields["loanRequest/creditAmt"].field_type)
             'integer'
         """
-        logger.info(f"📂 Загрузка схемы из {schema_path.name}")
+        logger.info(f"{Icon.DIRECTORY} Загрузка схемы из {schema_path.name}")
         schema = load_json(schema_path)
         self.fields = {}
         self.parse_schema(schema)
@@ -78,7 +79,7 @@ class SchemaParser:
         if not schema or not isinstance(schema, dict):
             return self.fields
 
-        logger.info(f"🔍 Начало парсинга JSON Schema")
+        logger.info(f"{Icon.FIND} Начало парсинга JSON Schema")
 
         parent_required = parent_required or []
         schema_type = schema.get("type")
@@ -102,7 +103,7 @@ class SchemaParser:
                 array_path = f"{path}[]" if path else "[]"
                 self.parse_schema(items_schema, array_path, required_fields)
 
-        logger.info(f"✅ Парсинг завершен: найдено {len(self.fields)} полей")
+        logger.info(f"{Icon.SUCCESS} Парсинг завершен: найдено {len(self.fields)} полей")
 
         return self.fields
 
@@ -130,6 +131,11 @@ class SchemaParser:
 
         # Извлечение справочника
         dictionary = field_schema.get("dictionary")
+
+        # Извлечение DQ-кодов
+        always_required_dq_code = field_schema.get("alwaysRequiredDqCode")
+        conditional_dq_code = field_schema.get("conditionalDqCode")
+        dictionary_dq_code = field_schema.get("dictionaryDqCode")
 
         # Извлечение условия (ОБНОВЛЕНО для поддержки ConditionalRequirement)
         condition_obj = None
@@ -166,7 +172,10 @@ class SchemaParser:
             format=field_schema.get("format"),
             default=field_schema.get("default"),
             description=field_schema.get("description"),
-            is_collection=is_collection  # ← НОВОЕ ПОЛЕ
+            is_collection=is_collection,  # ← НОВОЕ ПОЛЕ
+            always_required_dq_code=always_required_dq_code,
+            conditional_dq_code=conditional_dq_code,
+            dictionary_dq_code=dictionary_dq_code,
         )
 
         self.fields[path] = metadata

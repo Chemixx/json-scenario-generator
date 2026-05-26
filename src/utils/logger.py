@@ -5,6 +5,7 @@ from loguru import logger
 import sys
 from pathlib import Path
 from config.settings import config
+from src.utils.icons import Icon
 
 
 def setup_logger():
@@ -20,6 +21,13 @@ def setup_logger():
     """
     # Удаляем стандартный handler loguru
     logger.remove()
+
+    # Encoding safety: гарантируем, что stdout может выводить Unicode
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except (OSError, ValueError):
+            pass  # Некоторые окружения не поддерживают reconfigure
 
     # ======================================
     # Handler для консоли (с цветами)
@@ -50,9 +58,9 @@ def setup_logger():
 
     # Логируем успешную инициализацию
     logger.info("=" * 80)
-    logger.info(f"🚀 {config.APP_NAME} v{config.APP_VERSION}")
-    logger.info(f"📂 Логи сохраняются в: {log_file_path}")
-    logger.info(f"📊 Уровень логирования: {config.LOG_LEVEL}")
+    logger.info(f"{Icon.START} {config.APP_NAME} v{config.APP_VERSION}")
+    logger.info(f"{Icon.DIRECTORY} Логи сохраняются в: {log_file_path}")
+    logger.info(f"{Icon.STAT} Уровень логирования: {config.LOG_LEVEL}")
     logger.info("=" * 80)
 
     return logger
@@ -111,14 +119,14 @@ def log_function_call(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         func_name = func.__name__
-        log.debug(f"⚙️  Вызов функции: {func_name}() с args={args}, kwargs={kwargs}")
+        log.debug(f"{Icon.CONFIG} Вызов функции: {func_name}() с args={args}, kwargs={kwargs}")
 
         try:
             result = func(*args, **kwargs)
-            log.debug(f"✅ Функция {func_name}() завершена. Результат: {result}")
+            log.debug(f"{Icon.SUCCESS} Функция {func_name}() завершена. Результат: {result}")
             return result
         except Exception as e:
-            log.error(f"❌ Ошибка в функции {func_name}(): {e}")
+            log.error(f"{Icon.ERROR} Ошибка в функции {func_name}(): {e}")
             raise
 
     return wrapper
@@ -143,12 +151,12 @@ class LogBlock:
         self.block_name = block_name
 
     def __enter__(self):
-        log.info(f"▶️  Начало: {self.block_name}")
+        log.info(f"{Icon.ARROW} Начало: {self.block_name}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is None:
-            log.info(f"✅ Завершено: {self.block_name}")
+            log.info(f"{Icon.SUCCESS} Завершено: {self.block_name}")
         else:
-            log.error(f"❌ Ошибка в блоке '{self.block_name}': {exc_val}")
+            log.error(f"{Icon.ERROR} Ошибка в блоке '{self.block_name}': {exc_val}")
         return False  # Не подавляем исключение

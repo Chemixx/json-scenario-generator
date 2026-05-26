@@ -1,0 +1,75 @@
+{
+  "dictionaries": [
+    {
+      "code": "PRODUCT_TYPE",
+      "name": "Тип продукта",
+      "attributeMetadataList": [],
+      "dictionaryTypeCode": 1,
+      "subsystem": 0,
+      "hierarchical": false,
+      "deleted": false,
+      "formDictFlg": false
+    },
+    {
+      "code": "CURRENCY",
+      "name": "Валюта",
+      "attributeMetadataList": [],
+      "dictionaryTypeCode": 1,
+      "subsystem": 0,
+      "hierarchical": false,
+      "deleted": false,
+      "formDictFlg": false
+    }
+  ],
+  "elements": [
+    {
+      "dictionaryCode": "PRODUCT_TYPE",
+      "canonicalCode": 10410001,
+      "name": "PACL",
+      "description": "Потребительский кредит наличными",
+      "englishLocalization": "Consumer cash loan",
+      "attributes": [],
+      "mappings": [],
+      "deleted": false,
+      "currentVersion": true
+    },
+    {
+      "dictionaryCode": "PRODUCT_TYPE",
+      "canonicalCode": 10410002,
+      "name": "TOPUP",
+      "description": "Пополнение кредита",
+      "attributes": [],
+      "mappings": [],
+      "deleted": false,
+      "currentVersion": true
+    },
+    {
+      "dictionaryCode": "PRODUCT_TYPE",
+      "canonicalCode": 10410003,
+      "name": "REFI",
+      "description": "Рефинансирование",
+      "attributes": [],
+      "mappings": [],
+      "deleted": true,
+      "currentVersion": true
+    },
+    {
+      "dictionaryCode": "CURRENCY",
+      "canonicalCode": 643,
+      "name": "RUB",
+      "attributes": [],
+      "mappings": [],
+      "deleted": false,
+      "currentVersion": true
+    },
+    {
+      "dictionaryCode": "CURRENCY",
+      "canonicalCode": 840,
+      "name": "USD",
+      "attributes": [],
+      "mappings": [],
+      "deleted": false,
+      "currentVersion": false
+    }
+  ]
+}

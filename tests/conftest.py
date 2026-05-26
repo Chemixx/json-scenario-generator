@@ -271,3 +271,49 @@ def test_dictionaries_dir(fixtures_dir):
 def test_scenarios_dir(fixtures_dir):
     """Фикстура для директории с тестовыми сценариями"""
     return fixtures_dir / "scenarios"
+
+
+# ============================================================================
+# ФИКСТУРЫ: DictionaryRegistry
+# ============================================================================
+
+@pytest.fixture
+def registry():
+    """Фикстура Registry с предзагруженным PRODUCT_TYPE"""
+    from src.loaders.dictionary_registry import DictionaryRegistry
+    from src.models.dictionary_models import Dictionary, DictionaryEntry
+
+    reg = DictionaryRegistry()
+    product_type = Dictionary(name="PRODUCT_TYPE", description="Типы продуктов")
+    product_type.add_entry(DictionaryEntry(
+        code=10410001, name="PACL", dictionary_type="PRODUCT_TYPE",
+        description="Потребительский кредит наличными"
+    ))
+    product_type.add_entry(DictionaryEntry(
+        code=10410002, name="TOPUP", dictionary_type="PRODUCT_TYPE",
+        description="Пополнение кредита"
+    ))
+    product_type.add_entry(DictionaryEntry(
+        code=10410003, name="REFI", dictionary_type="PRODUCT_TYPE",
+        description="Рефинансирование"
+    ))
+    reg.register(product_type)
+
+    currency = Dictionary(name="CURRENCY", description="Валюты")
+    currency.add_entry(DictionaryEntry(code=643, name="RUB", dictionary_type="CURRENCY"))
+    currency.add_entry(DictionaryEntry(code=840, name="USD", dictionary_type="CURRENCY"))
+    reg.register(currency)
+    return reg
+
+
+@pytest.fixture
+def registry_from_json():
+    """Фикстура Registry загруженного из JSON"""
+    from src.loaders.dictionary_registry import DictionaryRegistry
+
+    reg = DictionaryRegistry()
+    fixtures = Path(__file__).parent / "fixtures" / "dictionaries"
+    json_path = fixtures / "sample.json"
+    if json_path.exists():
+        reg.load_from_json(json_path)
+    return reg

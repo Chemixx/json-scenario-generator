@@ -5,16 +5,14 @@ import json
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from src.utils.logger import get_logger
+from src.utils.icons import Icon
 
 # Импорты для валидации JSON Schema
 try:
-    from jsonschema import validate, ValidationError, Draft7Validator
+    from jsonschema import validate, ValidationError, Draft201909Validator
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
     JSONSCHEMA_AVAILABLE = False
-    # Заглушки для типов, если jsonschema не установлен
-    ValidationError = Exception  # type: ignore
-    Draft7Validator = None  # type: ignore
 
 logger = get_logger(__name__)
 
@@ -42,20 +40,20 @@ def load_json(file_path: Path) -> Dict[str, Any]:
         >>> print(data["key"])
     """
     if not file_path.exists():
-        logger.error(f"❌ Файл не найден: {file_path}")
+        logger.error(f"{Icon.ERROR} Файл не найден: {file_path}")
         raise FileNotFoundError(f"Файл не найден: {file_path}")
 
     try:
-        logger.debug(f"📂 Загрузка JSON из {file_path}")
+        logger.debug(f"{Icon.DIRECTORY} Загрузка JSON из {file_path}")
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        logger.info(f"✅ JSON успешно загружен из {file_path.name}")
+        logger.info(f"{Icon.SUCCESS} JSON успешно загружен из {file_path.name}")
         return data
     except json.JSONDecodeError as e:
-        logger.error(f"❌ Ошибка парсинга JSON в {file_path}: {e}")
+        logger.error(f"{Icon.ERROR} Ошибка парсинга JSON в {file_path}: {e}")
         raise
     except Exception as e:
-        logger.error(f"❌ Неожиданная ошибка при загрузке {file_path}: {e}")
+        logger.error(f"{Icon.ERROR} Неожиданная ошибка при загрузке {file_path}: {e}")
         raise
 
 
@@ -79,7 +77,7 @@ def save_json(
         >>> save_json(data, Path("output.json"))
     """
     try:
-        logger.debug(f"💾 Сохранение JSON в {file_path}")
+        logger.debug(f"{Icon.SAVE} Сохранение JSON в {file_path}")
 
         # Создаем директорию, если её нет
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,9 +85,9 @@ def save_json(
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=indent, ensure_ascii=ensure_ascii)
 
-        logger.info(f"✅ JSON успешно сохранен в {file_path.name}")
+        logger.info(f"{Icon.SUCCESS} JSON успешно сохранен в {file_path.name}")
     except Exception as e:
-        logger.error(f"❌ Ошибка сохранения JSON в {file_path}: {e}")
+        logger.error(f"{Icon.ERROR} Ошибка сохранения JSON в {file_path}: {e}")
         raise
 
 
@@ -122,15 +120,15 @@ def validate_json_schema(
         True
     """
     if not JSONSCHEMA_AVAILABLE:
-        logger.error("❌ Библиотека jsonschema не установлена")
+        logger.error(f"{Icon.ERROR} Библиотека jsonschema не установлена")
         raise ImportError("Установите jsonschema: pip install jsonschema")
 
     try:
         validate(instance=data, schema=schema)
-        logger.debug("✅ JSON валидация успешна")
+        logger.debug(f"{Icon.SUCCESS} JSON валидация успешна")
         return True
     except ValidationError as e:
-        logger.error(f"❌ JSON валидация не прошла: {e.message}")
+        logger.error(f"{Icon.ERROR} JSON валидация не прошла: {e.message}")
         raise
 
 
@@ -159,18 +157,18 @@ def get_validation_errors(
         True
     """
     if not JSONSCHEMA_AVAILABLE:
-        logger.error("❌ Библиотека jsonschema не установлена")
+        logger.error(f"{Icon.ERROR} Библиотека jsonschema не установлена")
         raise ImportError("Установите jsonschema: pip install jsonschema")
 
-    validator = Draft7Validator(schema)
+    validator = Draft201909Validator(schema)
     errors = list(validator.iter_errors(data))
 
     if errors:
-        logger.warning(f"⚠️ Найдено {len(errors)} ошибок валидации")
+        logger.warning(f"{Icon.WARNING} Найдено {len(errors)} ошибок валидации")
         for error in errors:
             logger.debug(f"  - {error.message}")
     else:
-        logger.debug("✅ Валидация пройдена без ошибок")
+        logger.debug(f"{Icon.SUCCESS} Валидация пройдена без ошибок")
 
     return errors
 

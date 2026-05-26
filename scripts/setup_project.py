@@ -2,7 +2,12 @@
 Скрипт для автоматического создания структуры проекта
 """
 import os
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.utils.icons import Icon
 
 
 def create_directory_structure():
@@ -58,7 +63,7 @@ def create_directory_structure():
             if not init_file.exists():
                 init_file.touch()
 
-    print("✅ Структура проекта создана успешно!")
+    print(f"{Icon.SUCCESS} Структура проекта создана успешно!")
 
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@ from datetime import datetime
 from enum import Enum
 import re
 
+from src.utils.icons import Icon
+
 
 # ============================================================================
 # ENUM: Статус версии контракта
@@ -395,12 +397,12 @@ class FieldChange:
 
     def __str__(self) -> str:
         if self.change_type == "added":
-            return f"➕ Добавлено: {self.path}"
+            return f"{Icon.ADDITION} Добавлено: {self.path}"
         elif self.change_type == "removed":
-            return f"➖ Удалено: {self.path}"
+            return f"{Icon.REMOVAL} Удалено: {self.path}"
         else:
             changes_str = ", ".join(f"{k}: {v}" for k, v in self.changes.items())
-            return f"🔄 Изменено: {self.path} ({changes_str})"
+            return f"{Icon.MODIFICATION} Изменено: {self.path} ({changes_str})"
 
     def __repr__(self) -> str:
         return f"FieldChange(path='{self.path}', type='{self.change_type}')"

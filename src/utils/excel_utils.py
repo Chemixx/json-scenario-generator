@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import pandas as pd
 from src.utils.logger import get_logger
+from src.utils.icons import Icon
 
 logger = get_logger(__name__)
 
@@ -37,19 +38,19 @@ def load_excel(
         >>> print(df.head())
     """
     if not file_path.exists():
-        logger.error(f"❌ Файл не найден: {file_path}")
+        logger.error(f"{Icon.ERROR} Файл не найден: {file_path}")
         raise FileNotFoundError(f"Файл не найден: {file_path}")
 
     try:
         sheet_info = f", лист: {sheet_name}" if sheet_name else ""
-        logger.debug(f"📂 Загрузка Excel из {file_path.name}{sheet_info}")
+        logger.debug(f"{Icon.DIRECTORY} Загрузка Excel из {file_path.name}{sheet_info}")
 
         df = pd.read_excel(file_path, sheet_name=sheet_name, header=header)
 
-        logger.info(f"✅ Excel успешно загружен: {len(df)} строк")
+        logger.info(f"{Icon.SUCCESS} Excel успешно загружен: {len(df)} строк")
         return df
     except Exception as e:
-        logger.error(f"❌ Ошибка загрузки Excel из {file_path}: {e}")
+        logger.error(f"{Icon.ERROR} Ошибка загрузки Excel из {file_path}: {e}")
         raise
 
 
@@ -69,16 +70,16 @@ def get_sheet_names(file_path: Path) -> List[str]:
         ['Sheet1', 'Sheet2']
     """
     if not file_path.exists():
-        logger.error(f"❌ Файл не найден: {file_path}")
+        logger.error(f"{Icon.ERROR} Файл не найден: {file_path}")
         raise FileNotFoundError(f"Файл не найден: {file_path}")
 
     try:
         excel_file = pd.ExcelFile(file_path)
         sheet_names = excel_file.sheet_names
-        logger.debug(f"📋 Листы в {file_path.name}: {sheet_names}")
+        logger.debug(f"{Icon.LIST} Листы в {file_path.name}: {sheet_names}")
         return sheet_names
     except Exception as e:
-        logger.error(f"❌ Ошибка чтения листов из {file_path}: {e}")
+        logger.error(f"{Icon.ERROR} Ошибка чтения листов из {file_path}: {e}")
         raise
 
 
@@ -111,7 +112,7 @@ def excel_to_dict(
     df = df.where(pd.notna(df), None)
 
     records = df.to_dict(orient='records')
-    logger.debug(f"📊 Преобразовано {len(records)} строк в словари")
+    logger.debug(f"{Icon.STAT} Преобразовано {len(records)} строк в словари")
 
     return records
 
@@ -144,7 +145,7 @@ def excel_to_json(
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=indent, ensure_ascii=False)
 
-    logger.info(f"✅ Excel преобразован в JSON: {output_path.name}")
+    logger.info(f"{Icon.SUCCESS} Excel преобразован в JSON: {output_path.name}")
 
 
 # ============================================================================
@@ -175,11 +176,11 @@ def filter_excel_by_column(
     df = load_excel(file_path, sheet_name=sheet_name)
 
     if column_name not in df.columns:
-        logger.error(f"❌ Колонка '{column_name}' не найдена в файле")
+        logger.error(f"{Icon.ERROR} Колонка '{column_name}' не найдена в файле")
         raise ValueError(f"Колонка '{column_name}' не найдена")
 
     filtered = df[df[column_name] == value]
-    logger.debug(f"🔍 Найдено {len(filtered)} строк с {column_name}='{value}'")
+    logger.debug(f"{Icon.FIND} Найдено {len(filtered)} строк с {column_name}='{value}'")
 
     return filtered
 
@@ -206,10 +207,10 @@ def get_unique_values(
     df = load_excel(file_path, sheet_name=sheet_name)
 
     if column_name not in df.columns:
-        logger.error(f"❌ Колонка '{column_name}' не найдена в файле")
+        logger.error(f"{Icon.ERROR} Колонка '{column_name}' не найдена в файле")
         raise ValueError(f"Колонка '{column_name}' не найдена")
 
     unique_values = df[column_name].dropna().unique().tolist()
-    logger.debug(f"📊 Найдено {len(unique_values)} уникальных значений в '{column_name}'")
+    logger.debug(f"{Icon.STAT} Найдено {len(unique_values)} уникальных значений в '{column_name}'")
 
     return unique_values

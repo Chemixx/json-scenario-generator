@@ -3,6 +3,7 @@
 """
 import pytest
 from src.utils.logger import log, log_function_call, LogBlock
+from src.utils.icons import Icon
 from config.settings import config
 
 
@@ -20,11 +21,11 @@ def test_log_file_created():
 def test_log_levels():
     """Тест различных уровней логирования"""
     # Логируем сообщения разных уровней
-    log.debug("🐛 Debug message for test")
-    log.info("ℹ️  Info message for test")
-    log.warning("⚠️  Warning message for test")
-    log.error("❌ Error message for test")
-    log.success("✅ Success message for test")
+    log.debug(f"{Icon.BUG} Debug message for test")
+    log.info(f"{Icon.INFO} Info message for test")
+    log.warning(f"{Icon.WARNING} Warning message for test")
+    log.error(f"{Icon.ERROR} Error message for test")
+    log.success(f"{Icon.SUCCESS} Success message for test")
 
     # Если дошли сюда, значит логирование работает
     assert True
@@ -77,7 +78,7 @@ def test_log_block_context_manager_with_exception():
 
 def test_log_to_file():
     """Тест записи логов в файл"""
-    test_message = "🧪 Тестовое сообщение для проверки записи в файл"
+    test_message = f"{Icon.TEST} Тестовое сообщение для проверки записи в файл"
     log.info(test_message)
 
     # Читаем файл логов

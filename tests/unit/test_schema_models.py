@@ -10,6 +10,7 @@ from src.models.schema_models import (
     SchemaDiff,
     ConditionalRequirement,  # ← ДОБАВЛЕНО
 )
+from src.utils.icons import Icon
 
 
 # ============================================================================
@@ -476,12 +477,12 @@ def test_field_change_str_repr():
     """Тест методов __str__ и __repr__"""
     # Добавление
     added = FieldChange(path="field1", change_type="added")
-    assert "➕" in str(added)
+    assert Icon.ADDITION in str(added)
     assert "field1" in str(added)
 
     # Удаление
     removed = FieldChange(path="field2", change_type="removed")
-    assert "➖" in str(removed)
+    assert Icon.REMOVAL in str(removed)
 
     # Изменение
     modified = FieldChange(
@@ -489,7 +490,7 @@ def test_field_change_str_repr():
         change_type="modified",
         changes={"type": "string → integer"}
     )
-    assert "🔄" in str(modified)
+    assert Icon.MODIFICATION in str(modified)
     assert "type" in str(modified)
 
 

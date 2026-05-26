@@ -45,3 +45,12 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Generated output
+output/
+
+# Windows artifacts
+nul
+
+# Temporary data
+entities.json

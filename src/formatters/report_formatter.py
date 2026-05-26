@@ -2,7 +2,7 @@
 Форматирование отчетов об изменениях между версиями JSON Schema
 
 Этот модуль отвечает за преобразование AnalysisResult в различные форматы:
-- Текстовый (консоль) — с эмодзи и цветовыми акцентами
+- Текстовый (консоль) — с ASCII-иконками (Icon) для безопасного вывода
 - Markdown — для документации и GitHub
 - JSON — для API и интеграций
 
@@ -28,7 +28,7 @@ Examples:
     >>> json_data = formatter.format_json(result)
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 from src.models import (
@@ -36,6 +36,7 @@ from src.models import (
     AnalyzedChange,
     ImpactLevel,
 )
+from src.utils.icons import Icon
 
 
 class ReportFormatter:
@@ -59,14 +60,16 @@ class ReportFormatter:
         >>> print(text_report)
     """
 
-    def __init__(self, separator_width: int = 80):
+    def __init__(self, separator_width: int = 80, registry: Optional[Any] = None):
         """
         Инициализация форматтера
 
         Args:
             separator_width: Ширина разделительных линий (по умолчанию 80)
+            registry: DictionaryRegistry для расшифровки справочных кодов (опционально)
         """
         self._separator_width = separator_width
+        self._registry = registry
 
     # =========================================================================
     # ТЕКСТОВЫЙ ФОРМАТ (КОНСОЛЬ)
@@ -93,7 +96,7 @@ class ReportFormatter:
             >>> report = formatter.format_text(analysis_result, verbose=True)
             >>> print(report)
             ================================================================================
-            📊 ОТЧЕТ ОБ ИЗМЕНЕНИЯХ JSON SCHEMA
+            [STAT] ОТЧЕТ ОБ ИЗМЕНЕНИЯХ JSON SCHEMA
             ================================================================================
             ...
         """
@@ -101,25 +104,25 @@ class ReportFormatter:
 
         # === ЗАГОЛОВОК ===
         lines.append("=" * self._separator_width)
-        lines.append("📊 ОТЧЕТ ОБ ИЗМЕНЕНИЯХ JSON SCHEMA")
+        lines.append(f"{Icon.STAT} ОТЧЕТ ОБ ИЗМЕНЕНИЯХ JSON SCHEMA")
         lines.append("=" * self._separator_width)
         lines.append("")
 
         # === ВЕРСИИ ===
-        lines.append(f"📁 Старая версия: {result.old_version}")
-        lines.append(f"📁 Новая версия: {result.new_version}")
+        lines.append(f"{Icon.FILE} Старая версия: {result.old_version}")
+        lines.append(f"{Icon.FILE} Новая версия: {result.new_version}")
 
         # === СТАТИСТИКА ===
         stats = result.statistics
-        lines.append("\n📈 СТАТИСТИКА:")
+        lines.append(f"\n{Icon.TREND} СТАТИСТИКА:")
         lines.append(f"  • Всего изменений: {stats['total_changes']}")
         lines.append(f"  • Добавлено полей: {stats['change_types']['additions']}")
         lines.append(f"  • Удалено полей: {stats['change_types']['removals']}")
         lines.append(f"  • Модифицировано полей: {stats['change_types']['modifications']}")
 
         lines.append("\n  ОБРАТНАЯ СОВМЕСТИМОСТЬ:")
-        lines.append(f"  • Breaking changes: {stats['breaking_level']['breaking']}  ⚠️")
-        lines.append(f"  • Non-breaking changes: {stats['breaking_level']['non_breaking']}  ✅")
+        lines.append(f"  • Breaking changes: {stats['breaking_level']['breaking']}  {Icon.WARNING}")
+        lines.append(f"  • Non-breaking changes: {stats['breaking_level']['non_breaking']}  {Icon.SUCCESS}")
 
         lines.append("\n  УРОВЕНЬ ВЛИЯНИЯ:")
         lines.append(f"  • Критические: {stats['impact_level']['critical']}")
@@ -129,7 +132,7 @@ class ReportFormatter:
 
         # === КРИТИЧЕСКИЕ ИЗМЕНЕНИЯ ===
         if result.critical_changes:
-            lines.append(f"\n🚨 КРИТИЧЕСКИЕ ИЗМЕНЕНИЯ ({len(result.critical_changes)}):")
+            lines.append(f"\n{Icon.CRITICAL} КРИТИЧЕСКИЕ ИЗМЕНЕНИЯ ({len(result.critical_changes)}):")
             for i, change in enumerate(result.critical_changes, 1):
                 lines.extend(self._format_change_block(
                     i, change, verbose, show_recommendations
@@ -141,7 +144,7 @@ class ReportFormatter:
             if c.impact_level != ImpactLevel.CRITICAL
         ]
         if breaking_non_critical:
-            lines.append(f"\n⚠️  BREAKING CHANGES ({len(breaking_non_critical)}):")
+            lines.append(f"\n{Icon.WARNING} BREAKING CHANGES ({len(breaking_non_critical)}):")
             for i, change in enumerate(breaking_non_critical, 1):
                 lines.extend(self._format_change_block(
                     i, change, verbose, show_recommendations
@@ -149,19 +152,19 @@ class ReportFormatter:
 
         # === ДОБАВЛЕННЫЕ ПОЛЯ ===
         if result.additions:
-            lines.append(f"\n➕ ДОБАВЛЕННЫЕ ПОЛЯ ({len(result.additions)}):")
+            lines.append(f"\n{Icon.ADDITION} ДОБАВЛЕННЫЕ ПОЛЯ ({len(result.additions)}):")
             for i, change in enumerate(result.additions, 1):
                 lines.extend(self._format_addition_item(i, change, verbose))
 
         # === УДАЛЕННЫЕ ПОЛЯ ===
         if result.removals:
-            lines.append(f"\n➖ УДАЛЕННЫЕ ПОЛЯ ({len(result.removals)}):")
+            lines.append(f"\n{Icon.REMOVAL} УДАЛЕННЫЕ ПОЛЯ ({len(result.removals)}):")
             for i, change in enumerate(result.removals, 1):
                 lines.extend(self._format_removal_item(i, change, verbose))
 
         # === NON-BREAKING ИЗМЕНЕНИЯ (только модификации) ===
         if result.modifications_non_breaking:
-            lines.append(f"\n✅ NON-BREAKING ИЗМЕНЕНИЯ ({len(result.modifications_non_breaking)}):")
+            lines.append(f"\n{Icon.SUCCESS} NON-BREAKING ИЗМЕНЕНИЯ ({len(result.modifications_non_breaking)}):")
             for i, change in enumerate(result.modifications_non_breaking, 1):
                 lines.extend(self._format_change_block(
                     i, change, verbose, show_recommendations
@@ -170,13 +173,13 @@ class ReportFormatter:
         # === ИТОГОВАЯ РЕКОМЕНДАЦИЯ ===
         lines.append("\n" + "=" * self._separator_width)
         if result.has_critical_changes():
-            lines.append("\n⚠️  ВНИМАНИЕ: Обнаружены критические изменения!")
+            lines.append(f"\n{Icon.WARNING} ВНИМАНИЕ: Обнаружены критические изменения!")
             lines.append("   Требуется обязательное обновление сценариев.")
         elif result.has_breaking_changes():
-            lines.append("\n⚠️  ВНИМАНИЕ: Обнаружены breaking changes!")
+            lines.append(f"\n{Icon.WARNING} ВНИМАНИЕ: Обнаружены breaking changes!")
             lines.append("   Рекомендуется обновить сценарии.")
         else:
-            lines.append("\n✅ Все изменения совместимы с предыдущей версией.")
+            lines.append(f"\n{Icon.SUCCESS} Все изменения совместимы с предыдущей версией.")
 
         lines.append("")
 
@@ -202,14 +205,14 @@ class ReportFormatter:
             Список строк для вывода
         """
         lines = []
-        lines.append(f"\n  {index}. 📍 {change.path}")
+        lines.append(f"\n  {index}. {Icon.PIN} {change.path}")
         lines.append(f"     Тип изменения: {change.change_type.to_russian()}")
         lines.append(f"     Причина: {change.reason}")
 
         if verbose and show_recommendations and change.recommendations:
             lines.append("     Рекомендации:")
             for rec in change.recommendations:
-                lines.append(f"       ✓ {rec}")
+                lines.append(f"       {Icon.SUCCESS} {rec}")
 
         return lines
 
@@ -242,7 +245,7 @@ class ReportFormatter:
             else:
                 status = "Н"  # Необязательное
 
-            impact_icon = change.impact_level.to_emoji()
+            impact_icon = change.impact_level.to_icon()
 
             line = f"  {index}. {impact_icon} {change.path} [{status}]"
             lines.append(line)
@@ -285,7 +288,7 @@ class ReportFormatter:
             else:
                 status = "Н"
 
-            impact_icon = change.impact_level.to_emoji()
+            impact_icon = change.impact_level.to_icon()
 
             line = f"  {index}. {impact_icon} {change.path} [{status}]"
             lines.append(line)

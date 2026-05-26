@@ -104,7 +104,7 @@ class AppConfig:
 
         Example:
             >>> config.get_schema_path("072", "Call1", "request")
-            Path("data/schemas/V72Call1Rq.json")
+            Path("data/schemas/V072Call1Rq.json")
         """
         suffix = "Rq" if direction == "request" else "Rs"
         filename = f"V{version}{call}{suffix}.json"

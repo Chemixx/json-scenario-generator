@@ -8,6 +8,7 @@ import pandas as pd
 from src.models.dictionary_models import Dictionary, DictionaryEntry
 from src.utils.excel_utils import load_excel, get_sheet_names
 from src.utils.logger import get_logger
+from src.utils.icons import Icon
 
 logger = get_logger(__name__)
 
@@ -93,10 +94,10 @@ class DictionaryLoader:
 
         # Проверяем кэш
         if cache_key in self._cache:
-            self.logger.info(f"📦 Справочник '{sheet_name}' загружен из кэша")
+            self.logger.info(f"{Icon.PKG} Справочник '{sheet_name}' загружен из кэша")
             return self._cache[cache_key]
 
-        self.logger.info(f"📂 Загрузка справочника '{sheet_name}' из {file_path.name}")
+        self.logger.info(f"{Icon.DIRECTORY} Загрузка справочника '{sheet_name}' из {file_path.name}")
 
         # Загружаем Excel
         df = load_excel(file_path, sheet_name=sheet_name, header=skip_rows)
@@ -117,7 +118,9 @@ class DictionaryLoader:
                 continue
 
             # Преобразуем типы
-            code = str(code).strip()
+            code = int(code) if isinstance(code, (int, float)) else code
+            if isinstance(code, str):
+                code = int(code.strip())
             name = str(name).strip()
 
             # Извлекаем описание (если есть)
@@ -137,7 +140,7 @@ class DictionaryLoader:
 
             dictionary.add_entry(entry)
 
-        self.logger.info(f"✅ Справочник '{sheet_name}' загружен: {len(dictionary)} записей")
+        self.logger.info(f"{Icon.SUCCESS} Справочник '{sheet_name}' загружен: {len(dictionary)} записей")
 
         # Кэшируем
         self._cache[cache_key] = dictionary
@@ -181,14 +184,14 @@ class DictionaryLoader:
         if exclude_sheets is None:
             exclude_sheets = []
 
-        self.logger.info(f"📚 Загрузка всех справочников из {file_path.name}")
+        self.logger.info(f"{Icon.DICTIONARY} Загрузка всех справочников из {file_path.name}")
 
         sheet_names = get_sheet_names(file_path)
         dictionaries = {}
 
         for sheet_name in sheet_names:
             if sheet_name in exclude_sheets:
-                self.logger.debug(f"⏭️  Пропуск листа '{sheet_name}' (в exclude_sheets)")
+                self.logger.debug(f"[SKIP] Пропуск листа '{sheet_name}' (в exclude_sheets)")
                 continue
 
             try:
@@ -202,10 +205,10 @@ class DictionaryLoader:
                 )
                 dictionaries[sheet_name] = dictionary
             except Exception as e:
-                self.logger.warning(f"⚠️  Не удалось загрузить лист '{sheet_name}': {e}")
+                self.logger.warning(f"{Icon.WARNING} Не удалось загрузить лист '{sheet_name}': {e}")
                 continue
 
-        self.logger.info(f"✅ Загружено {len(dictionaries)} справочников")
+        self.logger.info(f"{Icon.SUCCESS} Загружено {len(dictionaries)} справочников")
         return dictionaries
 
     # ========================================================================
@@ -254,10 +257,10 @@ class DictionaryLoader:
 
         # Проверяем кэш
         if cache_key in self._cache:
-            self.logger.info(f"📦 Справочник '{dictionary_code}' загружен из кэша")
+            self.logger.info(f"{Icon.PKG} Справочник '{dictionary_code}' загружен из кэша")
             return self._cache[cache_key]
 
-        self.logger.info(f"📂 Загрузка справочника '{dictionary_code}' из {file_path.name}")
+        self.logger.info(f"{Icon.DIRECTORY} Загрузка справочника '{dictionary_code}' из {file_path.name}")
 
         # Загружаем Excel
         df = load_excel(file_path, sheet_name=sheet_name, header=skip_rows)
@@ -270,7 +273,7 @@ class DictionaryLoader:
         filtered_df = df[df[dictionary_code_column] == dictionary_code]
 
         if filtered_df.empty:
-            self.logger.warning(f"⚠️  Справочник '{dictionary_code}' не найден в листе '{sheet_name}'")
+            self.logger.warning(f"{Icon.WARNING} Справочник '{dictionary_code}' не найден в листе '{sheet_name}'")
             return Dictionary(name=dictionary_code, description=f"Пустой справочник {dictionary_code}")
 
         # Создаем Dictionary
@@ -289,7 +292,9 @@ class DictionaryLoader:
                 continue
 
             # Преобразуем типы
-            code = str(code).strip()
+            code = int(code) if isinstance(code, (int, float)) else code
+            if isinstance(code, str):
+                code = int(code.strip())
             name = str(name).strip()
 
             # Создаем запись
@@ -300,7 +305,7 @@ class DictionaryLoader:
             )
             dictionary.add_entry(entry)
 
-        self.logger.info(f"✅ Справочник '{dictionary_code}' загружен: {len(dictionary)} записей")
+        self.logger.info(f"{Icon.SUCCESS} Справочник '{dictionary_code}' загружен: {len(dictionary)} записей")
 
         # Кэшируем
         self._cache[cache_key] = dictionary
@@ -342,7 +347,7 @@ class DictionaryLoader:
                 )
                 print(f"Loaded {len(all_dicts)} dictionaries")
         """
-        self.logger.info(f"📚 Загрузка всех справочников из листа '{sheet_name}'")
+        self.logger.info(f"{Icon.DICTIONARY} Загрузка всех справочников из листа '{sheet_name}'")
 
         # Загружаем Excel
         df = load_excel(file_path, sheet_name=sheet_name, header=skip_rows)
@@ -354,7 +359,7 @@ class DictionaryLoader:
         # Находим уникальные коды справочников
         unique_codes = df[dictionary_code_column].dropna().unique()
 
-        self.logger.info(f"📋 Найдено {len(unique_codes)} справочников: {list(unique_codes)[:5]}...")
+        self.logger.info(f"{Icon.LIST} Найдено {len(unique_codes)} справочников: {list(unique_codes)[:5]}...")
 
         dictionaries = {}
 
@@ -373,10 +378,10 @@ class DictionaryLoader:
                 )
                 dictionaries[dict_code_str] = dictionary
             except Exception as e:
-                self.logger.warning(f"⚠️  Не удалось загрузить справочник '{dict_code_str}': {e}")
+                self.logger.warning(f"{Icon.WARNING} Не удалось загрузить справочник '{dict_code_str}': {e}")
                 continue
 
-        self.logger.info(f"✅ Загружено {len(dictionaries)} справочников")
+        self.logger.info(f"{Icon.SUCCESS} Загружено {len(dictionaries)} справочников")
         return dictionaries
 
     # ========================================================================
@@ -397,7 +402,7 @@ class DictionaryLoader:
 
     def clear_cache(self):
         """Очистить кэш справочников"""
-        self.logger.info("🗑️  Очистка кэша справочников")
+        self.logger.info(f"{Icon.DELETE} Очистка кэша справочников")
         self._cache.clear()
 
     def get_cache_info(self) -> Dict[str, int]:

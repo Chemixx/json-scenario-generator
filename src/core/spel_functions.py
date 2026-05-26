@@ -7,6 +7,10 @@ from datetime import datetime, timedelta, date
 from typing import Any, Optional
 import re
 
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class SpelFunctions:
     """
@@ -15,6 +19,22 @@ class SpelFunctions:
     Используется при транспиляции SpEL → Python для подстановки
     правильных Python-реализаций вместо Java-методов.
     """
+
+    def __init__(self, registry=None):
+        """Инициализация SpEL-функций.
+
+        Args:
+            registry: DictionaryRegistry для валидации значений справочников
+        """
+        self._registry = registry
+
+    def set_registry(self, registry) -> None:
+        """Установить Registry для валидации значений справочников.
+
+        Args:
+            registry: DictionaryRegistry
+        """
+        self._registry = registry
 
     # ========== ДАТЫ ==========
 
@@ -225,18 +245,16 @@ class SpelFunctions:
         # Проверяем количество цифр
         return len(int_part) <= int_digits and len(frac_part) <= frac_digits
 
-    @staticmethod
     def is_dictionary_value(
+        self,
         value: Optional[str],
         dictionary_name: str,
-        allow_empty: bool = False
+        allow_empty: bool = False,
     ) -> bool:
         """
         isDictionaryValue(value, dictionaryName, allowEmpty) → boolean
 
         Проверка, что значение есть в справочнике.
-
-        ⚠️ Требует загрузки справочника через DictionaryLoader!
 
         Args:
             value: Значение для проверки
@@ -246,24 +264,19 @@ class SpelFunctions:
         Returns:
             True если значение валидно
         """
-        # TODO: Реализовать интеграцию с DictionaryLoader
-        # Пока заглушка
         if allow_empty and (value is None or value == ""):
             return True
 
-        # Placeholder: считаем, что все значения валидны
-        # В будущем здесь будет обращение к DictionaryLoader
-        logger = get_logger(__name__)
+        if self._registry is not None:
+            return self._registry.is_valid_value(dictionary_name, value)
+
+        # Fallback: нет registry — считаем значение валидным
         logger.debug(
             f"isDictionaryValue: проверка '{value}' в справочнике '{dictionary_name}' "
-            f"(пока заглушка, всегда True)"
+            f"(registry не подключён, всегда True)"
         )
         return True
 
 
 # Singleton instance для удобства использования
 spel_functions = SpelFunctions()
-
-
-# Импорт logger для использования в методах
-from src.utils.logger import get_logger
