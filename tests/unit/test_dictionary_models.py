@@ -2,7 +2,7 @@
 Тесты для моделей справочников
 """
 import pytest
-from src.models.dictionary_models import DictionaryEntry, Dictionary
+from src.models.dictionary_models import DictionaryEntry, Dictionary, DictionaryMetadata, ResolveResult
 
 
 # ============================================================================
@@ -244,3 +244,150 @@ def test_dictionary_to_dict():
     assert result["size"] == 1
     assert len(result["entries"]) == 1
     assert result["entries"][0]["code"] == 10410001
+
+
+# ============================================================================
+# ТЕСТЫ: DictionaryEntry — расширенные поля
+# ============================================================================
+
+def test_dictionary_entry_extended_fields():
+    """Тест расширенных полей DictionaryEntry (production-поля)"""
+    entry = DictionaryEntry(
+        code=10410001, name="PACL", dictionary_type="PRODUCT_TYPE",
+        description="Потребительский кредит",
+        english_localization="Consumer cash loan",
+        current_version=True, is_deleted=False,
+        attributes=[{"name": "TAG1", "value": "да", "type": "STRING"}],
+        mappings=[{"code": 1, "value": "1", "defaultValue": True, "reverseDefaultValue": True}],
+    )
+    assert entry.english_localization == "Consumer cash loan"
+    assert entry.current_version is True
+    assert entry.is_deleted is False
+    assert len(entry.attributes) == 1
+    assert len(entry.mappings) == 1
+
+
+def test_dictionary_entry_defaults_backward_compat():
+    """Тест обратной совместимости — новые поля имеют дефолтные значения"""
+    entry = DictionaryEntry(code=1, name="Test", dictionary_type="TEST")
+    assert entry.english_localization is None
+    assert entry.current_version is True
+    assert entry.is_deleted is False
+    assert entry.attributes == []
+    assert entry.mappings == []
+
+
+def test_dictionary_entry_to_dict_includes_new_fields():
+    """Тест to_dict() включает новые поля условно"""
+    entry = DictionaryEntry(code=1, name="Test", dictionary_type="TEST",
+        english_localization="Test EN",
+        attributes=[{"name": "A1", "value": "v1", "type": "STRING"}])
+    d = entry.to_dict()
+    assert d["english_localization"] == "Test EN"
+    assert len(d["attributes"]) == 1
+
+
+def test_dictionary_entry_to_dict_excludes_default_new_fields():
+    """Тест to_dict() не включает дефолтные новые поля"""
+    entry = DictionaryEntry(code=1, name="Test", dictionary_type="TEST")
+    d = entry.to_dict()
+    assert "english_localization" not in d
+    assert "current_version" not in d  # True по умолчанию — не включается
+    assert "is_deleted" not in d       # False по умолчанию — не включается
+    assert "attributes" not in d       # Пустой список — не включается
+    assert "mappings" not in d          # Пустой список — не включается
+
+
+def test_dictionary_entry_to_dict_includes_non_default_new_fields():
+    """Тест to_dict() включает ненефолтные новые поля"""
+    entry = DictionaryEntry(code=1, name="Test", dictionary_type="TEST",
+        current_version=False, is_deleted=True,
+        mappings=[{"code": 1, "value": "x"}])
+    d = entry.to_dict()
+    assert d["current_version"] is False
+    assert d["is_deleted"] is True
+    assert len(d["mappings"]) == 1
+
+
+# ============================================================================
+# ТЕСТЫ: Dictionary — хеш-индексы
+# ============================================================================
+
+def test_dictionary_add_entry_builds_indexes():
+    """Тест: add_entry заполняет хеш-индексы"""
+    dictionary = Dictionary(name="TEST")
+    entry = DictionaryEntry(code=10410001, name="PACL", dictionary_type="TEST")
+    dictionary.add_entry(entry)
+    assert dictionary.get_by_code(10410001) is entry
+    assert dictionary.get_by_name("PACL") is entry
+
+
+def test_dictionary_hash_index_o1():
+    """Тест: хеш-индекс даёт поиск O(1) для больших справочников"""
+    dictionary = Dictionary(name="TEST")
+    for i in range(100):
+        dictionary.add_entry(DictionaryEntry(code=i, name=f"NAME_{i}", dictionary_type="TEST"))
+    assert dictionary.get_by_code(50).name == "NAME_50"
+    assert dictionary.get_by_name("NAME_99").code == 99
+
+
+def test_dictionary_hash_index_miss():
+    """Тест: хеш-индекс возвращает None для отсутствующих ключей"""
+    dictionary = Dictionary(name="TEST")
+    dictionary.add_entry(DictionaryEntry(code=1, name="A", dictionary_type="TEST"))
+    assert dictionary.get_by_code(999) is None
+    assert dictionary.get_by_name("NONEXISTENT") is None
+
+
+def test_dictionary_init_builds_indexes():
+    """Тест: индексы строятся при инициализации через entries"""
+    entries = [
+        DictionaryEntry(code=1, name="A", dictionary_type="TEST"),
+        DictionaryEntry(code=2, name="B", dictionary_type="TEST"),
+    ]
+    dictionary = Dictionary(name="TEST", entries=entries)
+    assert dictionary.get_by_code(1).name == "A"
+    assert dictionary.get_by_name("B").code == 2
+
+
+# ============================================================================
+# ТЕСТЫ: DictionaryMetadata
+# ============================================================================
+
+def test_dictionary_metadata_creation():
+    """Тест создания DictionaryMetadata"""
+    meta = DictionaryMetadata(code="PRODUCT_TYPE", name="Тип продукта", dictionary_type_code=1, subsystem=0)
+    assert meta.code == "PRODUCT_TYPE"
+    assert meta.name == "Тип продукта"
+    assert str(meta) == "PRODUCT_TYPE: Тип продукта"
+
+
+def test_dictionary_metadata_defaults():
+    """Тест дефолтных значений DictionaryMetadata"""
+    meta = DictionaryMetadata(code="TEST", name="Тестовый")
+    assert meta.dictionary_type_code == 1
+    assert meta.subsystem == 0
+    assert meta.hierarchical is False
+    assert meta.form_dict_flg is False
+    assert meta.attribute_metadata == []
+
+
+# ============================================================================
+# ТЕСТЫ: ResolveResult
+# ============================================================================
+
+def test_resolve_result_format():
+    """Тест ResolveResult.format() с различными шаблонами"""
+    result = ResolveResult(code=10410001, name="PACL", dictionary_type="PRODUCT_TYPE",
+        description="Потребительский кредит", english_localization="Consumer cash loan")
+    assert str(result) == "PACL (10410001)"
+    assert result.format("{name} ({code})") == "PACL (10410001)"
+    assert result.format("{code}") == "10410001"
+    assert result.format("{name}") == "PACL"
+    assert result.format("{name} [{eng}]") == "PACL [Consumer cash loan]"
+
+
+def test_resolve_result_format_without_english():
+    """Тест ResolveResult.format() без английской локализации"""
+    result = ResolveResult(code=1, name="Test", dictionary_type="TEST")
+    assert result.format("{name} [{eng}]") == "Test []"

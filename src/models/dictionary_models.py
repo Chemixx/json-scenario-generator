@@ -21,6 +21,11 @@ class DictionaryEntry:
         dictionary_type: Тип справочника (например, "PRODUCT_TYPE")
         description: Описание (опционально)
         metadata: Дополнительные метаданные (опционально)
+        english_localization: Английская локализация из prod-JSON (опционально)
+        current_version: Флаг текущей версии (default: True)
+        is_deleted: Флаг удаления (default: False)
+        attributes: Атрибуты из prod-JSON (опционально)
+        mappings: Маппинги из prod-JSON (опционально)
 
     Example:
         >>> entry = DictionaryEntry(
@@ -37,6 +42,11 @@ class DictionaryEntry:
     dictionary_type: str
     description: str = ""
     metadata: Dict[str, Any] = dataclass_field(default_factory=dict)
+    english_localization: Optional[str] = None
+    current_version: bool = True
+    is_deleted: bool = False
+    attributes: List[Dict[str, Any]] = dataclass_field(default_factory=list)
+    mappings: List[Dict[str, Any]] = dataclass_field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -45,13 +55,24 @@ class DictionaryEntry:
         Returns:
             Словарь с данными записи
         """
-        return {
+        result: Dict[str, Any] = {
             "code": self.code,
             "name": self.name,
             "dictionary_type": self.dictionary_type,
             "description": self.description,
             "metadata": self.metadata,
         }
+        if self.english_localization is not None:
+            result["english_localization"] = self.english_localization
+        if not self.current_version:
+            result["current_version"] = self.current_version
+        if self.is_deleted:
+            result["is_deleted"] = self.is_deleted
+        if self.attributes:
+            result["attributes"] = self.attributes
+        if self.mappings:
+            result["mappings"] = self.mappings
+        return result
 
     def __str__(self) -> str:
         return f"{self.name} ({self.code})"
@@ -77,6 +98,9 @@ class Dictionary:
         name: Название справочника (например, "PRODUCT_TYPE")
         entries: Список записей справочника
         description: Описание справочника (опционально)
+        _code_index: Хеш-индекс по коду для поиска O(1)
+        _name_index: Хеш-индекс по названию для поиска O(1)
+        _metadata: Метаданные справочника (опционально)
 
     Example:
         >>> dictionary = Dictionary(
@@ -93,10 +117,19 @@ class Dictionary:
     name: str
     entries: List[DictionaryEntry] = dataclass_field(default_factory=list)
     description: str = ""
+    _code_index: Dict[int, DictionaryEntry] = dataclass_field(default_factory=dict, repr=False)
+    _name_index: Dict[str, DictionaryEntry] = dataclass_field(default_factory=dict, repr=False)
+    _metadata: Optional[Any] = None
+
+    def __post_init__(self) -> None:
+        """Построить индексы из начального списка entries."""
+        for entry in self.entries:
+            self._code_index[entry.code] = entry
+            self._name_index[entry.name] = entry
 
     def get_by_code(self, code: int) -> Optional[DictionaryEntry]:
         """
-        Получить запись по коду
+        Получить запись по коду (O(1) через хеш-индекс)
 
         Args:
             code: Код РКК
@@ -110,14 +143,11 @@ class Dictionary:
             >>> entry.name if entry else None
             'PACL'
         """
-        for entry in self.entries:
-            if entry.code == code:
-                return entry
-        return None
+        return self._code_index.get(code)
 
     def get_by_name(self, name: str) -> Optional[DictionaryEntry]:
         """
-        Получить запись по названию
+        Получить запись по названию (O(1) через хеш-индекс)
 
         Args:
             name: Название значения
@@ -131,10 +161,7 @@ class Dictionary:
             >>> entry.code if entry else None
             10410001
         """
-        for entry in self.entries:
-            if entry.name == name:
-                return entry
-        return None
+        return self._name_index.get(name)
 
     def get_random(self) -> DictionaryEntry:
         """
@@ -206,7 +233,7 @@ class Dictionary:
 
     def add_entry(self, entry: DictionaryEntry) -> None:
         """
-        Добавить запись в справочник
+        Добавить запись в справочник (также обновляет хеш-индексы)
 
         Args:
             entry: Запись для добавления
@@ -219,6 +246,8 @@ class Dictionary:
             1
         """
         self.entries.append(entry)
+        self._code_index[entry.code] = entry
+        self._name_index[entry.name] = entry
 
     def contains_code(self, code: int) -> bool:
         """
@@ -290,3 +319,94 @@ class Dictionary:
         elif isinstance(item, DictionaryEntry):
             return item in self.entries
         return False
+
+
+# ============================================================================
+# DATACLASS: Метаданные справочника
+# ============================================================================
+
+@dataclass
+class DictionaryMetadata:
+    """
+    Метаданные справочника из секции dictionaries JSON-файла.
+
+    Attributes:
+        code: Код справочника (например, "PRODUCT_TYPE")
+        name: Наименование справочника (например, "Тип продукта")
+        dictionary_type_code: Код типа справочника (default: 1)
+        subsystem: Код подсистемы (default: 0)
+        hierarchical: Признак иерархического справочника (default: False)
+        form_dict_flg: Признак форм-справочника (default: False)
+        attribute_metadata: Метаданные атрибутов справочника
+
+    Example:
+        >>> meta = DictionaryMetadata(code="PRODUCT_TYPE", name="Тип продукта")
+        >>> str(meta)
+        'PRODUCT_TYPE: Тип продукта'
+    """
+    code: str
+    name: str
+    dictionary_type_code: int = 1
+    subsystem: int = 0
+    hierarchical: bool = False
+    form_dict_flg: bool = False
+    attribute_metadata: List[Dict[str, Any]] = dataclass_field(default_factory=list)
+
+    def __str__(self) -> str:
+        return f"{self.code}: {self.name}"
+
+
+# ============================================================================
+# DATACLASS: Результат расшифровки кода
+# ============================================================================
+
+@dataclass
+class ResolveResult:
+    """
+    Результат расшифровки кода справочника.
+
+    Attributes:
+        code: Код РКК (например, 10410001)
+        name: Наименование значения (например, "PACL")
+        dictionary_type: Тип справочника (например, "PRODUCT_TYPE")
+        description: Описание (опционально)
+        english_localization: Английская локализация (опционально)
+
+    Example:
+        >>> result = ResolveResult(code=10410001, name="PACL", dictionary_type="PRODUCT_TYPE")
+        >>> str(result)
+        'PACL (10410001)'
+        >>> result.format("{name} [{eng}]")
+        'PACL []'
+    """
+    code: int
+    name: str
+    dictionary_type: str
+    description: str = ""
+    english_localization: Optional[str] = None
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.code})"
+
+    def format(self, fmt: str = "{name} ({code})") -> str:
+        """
+        Форматировать результат по шаблону.
+
+        Args:
+            fmt: Шаблон форматирования. Доступные плейсхолдеры:
+                {name}, {code}, {description}, {eng}
+
+        Returns:
+            Отформатированная строка
+
+        Example:
+            >>> result = ResolveResult(code=10410001, name="PACL", dictionary_type="PRODUCT_TYPE")
+            >>> result.format("{name} [{code}]")
+            'PACL [10410001]'
+        """
+        return fmt.format(
+            name=self.name,
+            code=self.code,
+            description=self.description,
+            eng=self.english_localization or "",
+        )

@@ -21,6 +21,8 @@ from .schema_models import (
 from .dictionary_models import (
     DictionaryEntry,
     Dictionary,
+    DictionaryMetadata,
+    ResolveResult,
 )
 
 from .scenario_models import (
@@ -63,6 +65,8 @@ __all__ = [
     # Dictionary models
     "DictionaryEntry",
     "Dictionary",
+    "DictionaryMetadata",
+    "ResolveResult",
 
     # Scenario models
     "Scenario",
