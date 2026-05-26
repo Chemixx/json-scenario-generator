@@ -28,7 +28,7 @@ Examples:
     >>> json_data = formatter.format_json(result)
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 from src.models import (
@@ -60,14 +60,16 @@ class ReportFormatter:
         >>> print(text_report)
     """
 
-    def __init__(self, separator_width: int = 80):
+    def __init__(self, separator_width: int = 80, registry: Optional[Any] = None):
         """
         Инициализация форматтера
 
         Args:
             separator_width: Ширина разделительных линий (по умолчанию 80)
+            registry: DictionaryRegistry для расшифровки справочных кодов (опционально)
         """
         self._separator_width = separator_width
+        self._registry = registry
 
     # =========================================================================
     # ТЕКСТОВЫЙ ФОРМАТ (КОНСОЛЬ)
