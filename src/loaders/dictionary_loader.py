@@ -118,7 +118,9 @@ class DictionaryLoader:
                 continue
 
             # Преобразуем типы
-            code = str(code).strip()
+            code = int(code) if isinstance(code, (int, float)) else code
+            if isinstance(code, str):
+                code = int(code.strip())
             name = str(name).strip()
 
             # Извлекаем описание (если есть)
@@ -290,7 +292,9 @@ class DictionaryLoader:
                 continue
 
             # Преобразуем типы
-            code = str(code).strip()
+            code = int(code) if isinstance(code, (int, float)) else code
+            if isinstance(code, str):
+                code = int(code.strip())
             name = str(name).strip()
 
             # Создаем запись

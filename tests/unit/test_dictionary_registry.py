@@ -121,3 +121,22 @@ class TestRegistryMetadata:
 
     def test_get_metadata_nonexistent(self, registry):
         assert registry.get_metadata("NONEXISTENT") is None
+
+
+class TestRegistryJsonLoading:
+    def test_load_from_json(self, registry):
+        """Загрузка из JSON через Registry"""
+        from pathlib import Path
+        fixtures = Path(__file__).parent.parent / "fixtures" / "dictionaries"
+        result = registry.load_from_json(fixtures / "sample.json")
+        assert "PRODUCT_TYPE" in result
+        assert registry.get("PRODUCT_TYPE") is not None
+        assert registry.get_entry("PRODUCT_TYPE", 10410001) is not None
+
+    def test_resolve_after_json_load(self, registry):
+        """Resolve после загрузки из JSON"""
+        from pathlib import Path
+        fixtures = Path(__file__).parent.parent / "fixtures" / "dictionaries"
+        registry.load_from_json(fixtures / "sample.json")
+        result = registry.resolve("PRODUCT_TYPE", 10410001)
+        assert result == "PACL (10410001)"
