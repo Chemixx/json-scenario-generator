@@ -1,7 +1,7 @@
 # Архитектура json-scenario-generator
 
-**Версия документа:** 2.1
-**Последнее обновление:** 08 мая 2026
+**Версия документа:** 2.3
+**Последнее обновление:** 26 мая 2026
 **Версия проекта:** 0.1.0-dev (MVP ~90%)
 
 ## Цели архитектуры
@@ -19,6 +19,7 @@
 | Модели | `src/models/` | Описание доменных сущностей и результатов анализа |
 | Парсеры | `src/parsers/` | Преобразование внешних структур (JSON Schema, SpEL) в модели |
 | Загрузчики | `src/loaders/` | Чтение Excel/JSON и загрузка справочников/сценариев |
+| Реестр | `src/loaders/` | DictionaryRegistry — центральное хранилище справочников с O(1) lookup |
 | Ядро | `src/core/` | Бизнес-логика сравнения, актуализации, валидации, SpEL-обработки |
 | Анализаторы | `src/analyzers/` | Классификация изменений, генерация объяснений |
 | Форматтеры | `src/formatters/` | Преобразование результатов анализа в удобные форматы |
@@ -48,6 +49,10 @@
 - **AnalyzedChange / AnalysisResult** — результат аналитики изменений.
   - `AnalysisResult` содержит 16+ методов фильтрации/сортировки/сериализации.
 - **DictionaryEntry / Dictionary** — справочники значений (CRUD, поиск, итерация, `get_random()`).
+  - **DictionaryEntry** расширен продуктивными полями: `english_localization`, `current_version`, `is_deleted`, `attributes`, `mappings`.
+  - **Dictionary** использует O(1) хеш-индексы: `_code_index`, `_name_index` для быстрого поиска.
+- **DictionaryMetadata / ResolveResult** — метаданные справочника и результат резолва кода → человекочитаемое имя.
+- **DictionaryRegistry** — центральное хранилище справочников: O(1) lookup, resolve, validation, загрузка из JSON/Excel.
 - **Scenario / ScenarioMetadata** — JSON-сценарий с навигацией по slash-пути (`get_field_value`, `set_field_value`, `delete_field`).
 
 ### Принципы
@@ -130,14 +135,36 @@
 
 - **Кэширование:** `_cache: Dict[str, Dictionary]`, ключ: `"{file_path.name}:{sheet_name}"`.
 - **Валидация:** `_validate_columns(df, required_columns)` → `ValueError` если колонки отсутствуют.
+- **Исправлен баг:** колонка кода теперь всегда `str` (ранее `int` из Excel).
 - **Статус:** ✅ 19 unit-тестов.
+
+### JsonDictionaryLoader
+
+- **Назначение:** Загрузка справочников из продуктивного JSON-формата (1905.64/1905.65).
+- **Вход:** JSON-файл со структурой `{dictionaryCode: {entries: [...]}}`.
+- **Выход:** `Dictionary` с расширенными полями `DictionaryEntry` (`english_localization`, `current_version`, `is_deleted`, `attributes`, `mappings`).
+- **Метод:** `load_from_json(file_path: Path) → Dictionary`.
+- **Статус:** ✅ Реализован.
+
+### DictionaryRegistry
+
+- **Назначение:** Центральное хранилище всех загруженных справочников с O(1) доступом.
+- **Ключевые возможности:**
+  - `register(dictionary)` — регистрация справочника.
+  - `get(name) → Dictionary` — O(1) lookup по имени.
+  - `resolve(dict_name, code) → ResolveResult` — код → человекочитаемое имя + метаданные.
+  - `validate(dict_name, code) → bool` — проверка наличия кода в справочнике.
+  - `load_from_json(file_path)` — пакетная загрузка JSON через `JsonDictionaryLoader`.
+  - `load_from_excel(file_path, sheet_name)` — загрузка Excel через `DictionaryLoader`.
+- **Потребители:** `SpelFunctions.is_dictionary_value`, `ValueGenerator`, `JsonValidator`, `ReportFormatter`.
+- **Статус:** ✅ Реализован.
 
 ### ScenarioLoader (на будущее)
 
 - Будет отвечать за загрузку JSON-сценариев для v0.2.0 (генератор).
 - Модель `Scenario` уже готова с методами навигации по slash-пути.
 
-**Роль слоя:** работа с внешними источниками данных (Excel/JSON), без бизнес-логики.
+**Роль слоя:** работа с внешними источниками данных (Excel/JSON), без бизнес-логики. Загрузчики поставляют данные в `DictionaryRegistry`, который выступает единой точкой доступа для ядра.
 
 ---
 
@@ -173,6 +200,18 @@
 │       │                              ↓                        │
 │  [Внешние]                    (is_valid, errors)              │
 │                                                               │
+│  ┌─────────────────────────────────────────────┐              │
+│  │        DictionaryRegistry (src/loaders/)      │              │
+│  │  ┌──────────┐  ┌────────────────┐            │              │
+│  │  │ Excel   │  │ JSON            │            │              │
+│  │  │ Loader  │  │ Loader          │            │              │
+│  │  └──────────┘  └────────────────┘            │              │
+│  │         ↓             ↓                       │              │
+│  │      register() → O(1) lookup/resolve/validate│              │
+│  └──────────┬──────────────────────┬───────────┘              │
+│             │                      │                           │
+│      SpelFunctions          ValueGenerator/Validator/Formatter │
+│   (is_dictionary_value)       (generate/validate/resolve)     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -211,7 +250,7 @@
   |-----------|---------|
   | **Date API (6)** | current_date, to_local_date, minus_years, minus_days, is_after, compare_to |
   | **String API (5)** | length, matches, startsWith, endsWith, contains |
-  | **Бизнес-функции (4)** | is_valid_tax_num, is_valid_uuid, digits_check, is_dictionary_value |
+  | **Бизнес-функции (4)** | is_valid_tax_num, is_valid_uuid, digits_check, is_dictionary_value (реализация через DictionaryRegistry) |
   | **Операторы сравнения (6)** | eq, ne, lt, le, gt, ge |
   | **Логические (3)** | and, or, not |
   | **Навигация (5)** | this, parent, parent2, parent3, root |
@@ -239,6 +278,7 @@
 #### ValueGenerator 🔴 ОЖИДАЕТ РЕАЛИЗАЦИИ (Этап 6)
 
 - **Назначение:** Генерация валидных значений для новых/изменённых полей.
+- **Интеграция с DictionaryRegistry:** принимает `registry: DictionaryRegistry` для генерации значений из справочников (вместо прямого доступа к Dictionary).
 - **Планируемая генерация по типам:**
 
   | Тип | Генератор |
@@ -266,12 +306,13 @@
 
 - **Назначение:** Применение `SchemaDiff` к JSON-сценарию — автоматическая актуализация.
 - **Зависимости:** ValueGenerator (Этап 6).
-- **Статус:** 🔴 Ожидает реализации (Этап 7, P0).
+- **Статус:** ✅ Завершён (Этап 7, P0).
 
 #### JsonValidator ✅ ЗАВЕРШЁН (Этап 8)
 
 - **Назначение:** Двойная валидация: JSON Schema Draft 2019-09 + SpEL-условия.
 - **Зависимости:** ConditionalValidator (Этап 5 ✅).
+- **Интеграция с DictionaryRegistry:** принимает `registry: DictionaryRegistry` для валидации dictionary-полей и добавления `resolved_value` в ошибки.
 - **Статус:** ✅ Завершён (Этап 8, P0).
 
 **Принцип:** ядро не знает про CLI/формат отчетов, только про доменную логику.
@@ -473,6 +514,12 @@ python -m src.cli validate \
                      │ ValueGen. +  │                                   │   Отчёт:     │
                      │ CondValidator│                                   │ (valid/errors)│
                      └──────────────┘                                   └──────────────┘
+                            ↑                                                  ↑
+                     ┌──────────────────────────────────────────────────────────┐
+                     │                DictionaryRegistry                        │
+                     │  JSON/Excel → Loader → Registry → SpEL/ValueGen/Validator│
+                     │              O(1) lookup, resolve, validate               │
+                     └──────────────────────────────────────────────────────────┘
 ```
 
 1. Загрузить обе схемы → `SchemaDiff`.
@@ -494,7 +541,9 @@ python -m src.cli validate \
 - `SchemaComparator` — только сравнение.
 - `ChangeAnalyzer` — только анализ.
 - `ReportFormatter` — только форматирование.
-- `DictionaryLoader` — только загрузка справочников.
+- `DictionaryLoader` — только загрузка Excel-справочников.
+- `JsonDictionaryLoader` — только загрузка JSON-справочников.
+- `DictionaryRegistry` — только хранение и O(1) доступ к справочникам.
 - `SpelParser` — только парсинг SpEL в AST.
 - `ConditionEvaluator` — только исполнение AST на данных.
 - `ValueGenerator` — только генерация значений.
@@ -510,6 +559,7 @@ python -m src.cli validate \
 - `ChangeAnalyzer` можно расширять новыми правилами классификации
   без изменения парсера/компаратора.
 - `SpelFunctions` открыт для добавления новых SpEL-функций.
+- `DictionaryRegistry` открыт для новых источников загрузки (Excel, JSON, будущие форматы) через отдельные Loader-классы.
 
 ### L — Liskov Substitution
 
@@ -527,12 +577,13 @@ python -m src.cli validate \
 - Высокоуровневые компоненты (CLI, отчеты) зависят от абстракций
   (`AnalysisResult`, `ReportFormatter`), а не от конкретных деталей парсинга/IO.
 - Ядро зависит от моделей (`FieldMetadata`, `SchemaDiff`), а не от конкретных парсеров.
+- Потребители справочников зависят от `DictionaryRegistry` (абстракция), а не от конкретных загрузчиков (Excel/JSON).
 
 ---
 
 ## Тестирование и качество
 
-- **412 unit-тестов** покрывают все слои (100% pass rate для завершённых этапов).
+- **484 unit-тестов** покрывают все слои (100% pass rate для завершённых этапов).
 - Тесты строятся вокруг контрактов слоев:
   - для SchemaParser проверяются вход/выход по FieldMetadata,
   - для SchemaComparator — структура SchemaDiff,
@@ -551,7 +602,7 @@ python -m src.cli validate \
 | `test_schema_comparator.py` | 20 | ✅ |
 | `test_change_analyzer.py` | 69 | ✅ |
 | `test_report_formatter.py` | 12 | ✅ |
-| **Итого** | **412** | ✅ **100% проходят** |
+| **Итого** | **484** | ✅ **100% проходят** |
 
 **Цель:** любые изменения в слоях сразу подсвечиваются падающими тестами.
 **Планируется:** интеграционные и E2E-тесты после завершения Этапа 3.
@@ -640,7 +691,7 @@ from jsonschema import Draft7Validator  # Draft 7, не 2019-09
 - Слои: модели, парсеры, загрузчики, ядро, анализаторы, форматтеры, CLI.
 - **Готово:** Этапы 0-5 (инфраструктура, парсеры, анализаторы, SpEL AST/Parser/Functions/Evaluator/Validator).
 - **В работе:** Этап 6 (ValueGenerator).
-- **Тестов:** 412 passed (100%).
+- **Тестов:** 484 passed (100%).
 
 ### Версия 0.2.0 ("Генератор")
 
@@ -682,5 +733,5 @@ from jsonschema import Draft7Validator  # Draft 7, не 2019-09
 
 ---
 
-*Последнее обновление: 14 апреля 2026*
+*Последнее обновление: 26 мая 2026*
 *Версия проекта: 0.1.0 (MVP ~90%)*

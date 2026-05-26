@@ -7,19 +7,38 @@
 
 ---
 
+## [Unreleased] - 2026-05-26
+
+### Added
+- **DictionaryLoader v2**: Complete dictionary system with O(1) lookup and prod-JSON support
+  - `DictionaryRegistry` — central store with O(1) lookup, resolve, and validation
+  - `JsonDictionaryLoader` — loads prod-JSON format (1905.64/1905.65) with filter_deleted/filter_current
+  - `DictionaryEntry` extended with production fields (english_localization, current_version, is_deleted, attributes, mappings)
+  - `Dictionary` O(1) hash indexes (_code_index, _name_index)
+  - `DictionaryMetadata` and `ResolveResult` dataclasses
+  - Real `is_dictionary_value()` implementation via Registry (replaces stub)
+  - Registry integration in ValueGenerator, JsonValidator, ReportFormatter
+  - Integration tests: full pipeline JSON→Registry→SpEL→Validation
+  - 57 new tests (DictionaryRegistry, JsonDictionaryLoader, SpEL-dictionary integration, dictionary pipeline)
+
+### Fixed
+- DictionaryLoader: code column type int instead of str (P3 fix)
+
+### Changed
+- SpelFunctions: `is_dictionary_value` is now an instance method (no longer @staticmethod)
+- **541 tests pass** (was 484)
+
+---
+
 ## [Unreleased] - 2026-05-24
+
+### Added
+- **TD-14 fixed**: JsonActualizer test coverage raised from 71% to 100% (104 tests, was 43). Line 971 marked as `# pragma: no cover` (dead code — unreachable elif branch).
 
 ### Added
 - **Icon module** (`src/utils/icons.py`): 31 ASCII-констант для безопасного вывода в любую кодировку (cp1251-safe). Заменяют эмодзи в runtime-коде.
 - **`to_icon()` methods** в `BreakingLevel` и `ImpactLevel`: возвращают ASCII-иконки (`[WARN]`, `[OK]`, `[!!!]`, `[!!]`, `[!]`, `[.]`) для консольного вывода.
 - **Encoding safety net** в `logger.py` и `analyze_changes.py`: `sys.stdout.reconfigure(encoding='utf-8', errors='replace')` предотвращает `UnicodeEncodeError`.
-
-### Changed
-- **TD-16 fixed**: 160 эмодзи в runtime-коде заменены на ASCII-константы из `Icon`. `format_text()` использует Icon, `format_markdown()` сохраняет эмодзи (безопасно — записывает в файл с `encoding='utf-8'`).
-- Заменены эмодзи в 18 файлах: `logger.py`, `report_formatter.py`, `dictionary_loader.py`, `json_utils.py`, `excel_utils.py`, `enums.py`, `schema_models.py`, `schema_parser.py`, `change_analyzer.py`, `schema_comparator.py`, `spel_functions.py`, `analyze_changes.py`, `setup_project.py`, `logger_example.py` + 4 тестовых файла.
-- 423 теста пройдены, 0 падений. Все Icon-константы cp1251-safe.
-
-### Known Issues
 - **JsonValidator** (Phase 8): New module `src/core/json_validator.py`
   - `JsonValidator` class with `validate()`, `validate_batch()`, `validate_from_paths()` methods
   - 5 independent validation steps: schema (Draft201909Validator), required (О), conditional (УО), constraints, dictionaries
@@ -33,8 +52,13 @@
 - DQ field parsing in SchemaParser: `alwaysRequiredDqCode`, `conditionalDqCode`, `dictionaryDqCode`
 - `requirement_type` field (null/missing) on `ConditionalValidator.ValidationError`
 - 85 new tests (59 for JsonValidator, 26 for constraint_utils)
+- **JsonActualizer**: test coverage raised from 71% to 100% (104 tests, was 43). Line 971 marked `# pragma: no cover` (unreachable elif branch). TD-14 resolved.
 
 ### Changed
+- **TD-16 fixed**: 160 эмодзи в runtime-коде заменены на ASCII-константы из `Icon`. `format_text()` использует Icon, `format_markdown()` сохраняет эмодзи (безопасно — записывает в файл с `encoding='utf-8'`).
+- Заменены эмодзи в 18 файлах: `logger.py`, `report_formatter.py`, `dictionary_loader.py`, `json_utils.py`, `excel_utils.py`, `enums.py`, `schema_models.py`, `schema_parser.py`, `change_analyzer.py`, `schema_comparator.py`, `spel_functions.py`, `analyze_changes.py`, `setup_project.py`, `logger_example.py` + 4 тестовых файла.
+- 423 теста пройдены, 0 падений. Все Icon-константы cp1251-safe.
+- **484 теста пройдены** (включая 104 для JsonActualizer, 59 для JsonValidator, 26 для constraint_utils).
 - **TD-13 fixed**: `JsonActualizer._evaluate_condition()` now delegates context building to `ConditionalValidator._build_context()`, correctly resolving `#this`, `parent`, `parent2` SpEL navigation. Added `field_path` parameter. 4 new tests without mocks.
 - `JsonActualizer._validate_result()` removed — `JsonValidator` is the single validation point
 - `JsonActualizer._validate_value()` now uses `constraint_utils.check_constraint()`
@@ -65,7 +89,7 @@
   - Exports added to `src/core/__init__.py`
 
 ### Changed
-- Total tests: 281 → 320 → 412 passed
+- Total tests: 281 → 320 → 412 → 484 passed
 
 ## [Unreleased] — 2026-05-14
 
@@ -74,7 +98,7 @@
 **Инфраструктура** ✅
 - Исправлен pandas leak: `src/utils/__init__.py` не импортирует `excel_utils` автоматически
 - Установлен `pyparsing==3.1.1` для Python 3.14
-- **412 unit-тестов проходят** (было 173 → 247 → 281 → 320 → 412)
+- **484 unit-теста проходят** (было 173 → 247 → 281 → 320 → 412 → 484)
 
 **SpelAST** ✅ завершён
 - 52 NodeType в `src/core/spel_ast.py`
@@ -248,7 +272,7 @@
 |---------|----------|
 | **Файлов .py** | 60 |
 | **Unit-тестов задекларировано** | 250+ |
-| **Unit-тестов проходит** | **412 (100%)** |
+| **Unit-тестов проходит** | **484 (100%)** |
 | **Этапов завершено** | 5 из 10 (Этапы 0–5 завершены) |
 | **Общий прогресс MVP** | ~90% |
 | **Покрытие (этапы 0–2.5)** | 100% |
@@ -288,5 +312,5 @@
 ---
 
 <p align="center">
-  <sub>Последнее обновление: 17 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 Этап 8 завершён (~90% MVP)</sub>
+  <sub>Последнее обновление: 26 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 DictionaryLoader v2 завершён (~92% MVP)</sub>
 </p>

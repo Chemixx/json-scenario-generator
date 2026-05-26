@@ -361,18 +361,33 @@ python scripts/analyze_changes.py \
 
 **ID:** FR-005
 **Приоритет:** P1
-**Статус:** ✅ ЧАСТИЧНО (загрузка готова, генерация — нет)
+**Статус:** ✅ ЗАВЕРШЕНО (загрузка Excel/JSON, DictionaryRegistry, resolve, validate)
 
 ### 3.5.1 Загрузка
 ```python
+# Из Excel
 loader = DictionaryLoader()
 dict = loader.load_dictionary(Path("data.xlsx"), sheet_name="PRODUCT_TYPE")
+
+# Из JSON (продуктивный формат 1905.64/1905.65)
+json_loader = JsonDictionaryLoader()
+dict = json_loader.load_from_json(Path("data/dictionaries/product_type.json"))
+
+# Через Registry (рекомендуемый способ)
+registry = DictionaryRegistry()
+registry.load_from_json(Path("data/dictionaries/product_type.json"))
+registry.load_from_excel(Path("data/dictionaries.xlsx"), sheet_name="CHANNEL")
 ```
 
-### 3.5.2 Кэширование
-- Кэш в памяти (`_cache: Dict[str, Dictionary]`)
-- Ключ: `"{file_path.name}:{sheet_name}"`
-- Метод `clear_cache()` для сброса
+### 3.5.2 Кэширование и O(1) lookup
+- DictionaryLoader: кэш в памяти (`_cache: Dict[str, Dictionary]`), ключ: `"{file_path.name}:{sheet_name}"`, метод `clear_cache()`
+- DictionaryRegistry: O(1) хеш-индексы для lookup/resolve/validate по имени и коду
+
+### 3.5.3 Resolve (код → человекочитаемое имя)
+```python
+result = registry.resolve("PRODUCT_TYPE", "10410001")
+# ResolveResult(name="PACL", english_name="Consumer loan", is_valid=True)
+```
 
 ## 3.6 CLI-интерфейс
 
@@ -645,10 +660,15 @@ class AnalysisResult:
 ```python
 @dataclass
 class DictionaryEntry:
-    code: int                          # 10410001
+    code: str                          # "10410001" (всегда str, даже из Excel)
     name: str                          # "PACL"
     dictionary_type: str               # "PRODUCT_TYPE"
     description: str = ""
+    english_localization: str = ""     # "Consumer loan" (продуктивное поле)
+    current_version: str = ""          # Версия записи
+    is_deleted: bool = False           # Пометка удаления
+    attributes: Dict[str, Any] = {}    # Дополнительные атрибуты
+    mappings: Dict[str, str] = {}      # Маппинги на другие справочники
     metadata: Dict[str, Any] = {}
 ```
 
@@ -666,27 +686,62 @@ class Dictionary:
     description: str = ""
 ```
 
+**O(1) хеш-индексы (построены при `add_entry`):**
+- `_code_index: Dict[str, DictionaryEntry]` — поиск по коду за O(1)
+- `_name_index: Dict[str, DictionaryEntry]` — поиск по названию за O(1)
+
 **Методы:**
 | Метод | Описание |
 |-------|----------|
-| `get_by_code(code)` | Поиск по коду |
-| `get_by_name(name)` | Поиск по названию |
+| `get_by_code(code)` | Поиск по коду — O(1) через `_code_index` |
+| `get_by_name(name)` | Поиск по названию — O(1) через `_name_index` |
 | `get_random()` | Случайная запись (ValueError если пуст) |
-| `get_all_codes()` | List[int] всех кодов |
+| `get_all_codes()` | List[str] всех кодов |
 | `get_all_names()` | List[str] всех названий |
 | `size()` | Количество записей |
 | `is_empty()` | Пуст ли справочник |
-| `add_entry(entry)` | Добавить запись |
-| `contains_code(code)` | Есть ли код |
-| `contains_name(name)` | Есть ли название |
+| `add_entry(entry)` | Добавить запись (обновляет `_code_index`, `_name_index`) |
+| `contains_code(code)` | Есть ли код — O(1) |
+| `contains_name(name)` | Есть ли название — O(1) |
 | `to_dict()` | Сериализация |
 | `__len__()` | len(dictionary) |
 | `__iter__()` | for entry in dictionary |
 | `__contains__()` | code/name in dictionary |
 
-## 4.10 Scenario
+## 4.10 DictionaryMetadata
+
+**Файл:** `src/models/dictionary_models.py`
+
+```python
+@dataclass
+class DictionaryMetadata:
+    name: str                          # Имя справочника
+    version: str = ""                   # Версия данных
+    source: str = ""                    # Источник (json/excel)
+    entry_count: int = 0                # Количество записей
+    loaded_at: datetime = None          # Время загрузки
+```
+
+## 4.11 ResolveResult
+
+**Файл:** `src/models/dictionary_models.py`
+
+```python
+@dataclass
+class ResolveResult:
+    code: str                          # Исходный код
+    name: str                          # Человекочитаемое имя
+    english_name: str = ""             # Английская локализация
+    is_valid: bool = True              # Код найден в справочнике
+    dictionary_name: str = ""          # Имя справочника
+    entry: Optional[DictionaryEntry] = None  # Полная запись
+```
+
+## 4.12 Scenario
 
 **Файл:** `src/models/scenario_models.py`
+
+```python
 
 ```python
 @dataclass
@@ -714,7 +769,7 @@ class Scenario:
 5. Для "value": current = current["value"] → вернуть
 ```
 
-## 4.11 ScenarioMetadata
+## 4.13 ScenarioMetadata
 
 **Файл:** `src/models/scenario_models.py`
 
@@ -734,7 +789,7 @@ class ScenarioMetadata:
 
 **Методы:** `add_tag()`, `has_tag()`, `update_timestamp()`, `to_dict()`
 
-## 4.12 Enums
+## 4.14 Enums
 
 **Файл:** `src/models/enums.py`
 
@@ -1077,20 +1132,78 @@ loader.load_dictionary_by_code(
 
 ### 5.5.3 Валидация
 - `_validate_columns(df, required_columns)` → ValueError если колонки отсутствуют
+- **Исправлен баг:** колонка кода теперь всегда `str` (ранее `int` из Excel приводил к ошибкам поиска)
 
-## 5.6 SpelParser (`src/core/spel_parser.py`)
+## 5.6 JsonDictionaryLoader (`src/loaders/json_dictionary_loader.py`)
 
 ### 5.6.1 Назначение
+Загрузка справочников из продуктивного JSON-формата (1905.64/1905.65).
+
+### 5.6.2 Входные данные
+- JSON-файл со структурой `{dictionaryCode: {entries: [...]}}` или плоский массив записей
+- Каждая запись содержит: `code`, `name`, `englishLocalization`, `currentVersion`, `isDeleted`, `attributes`, `mappings`
+
+### 5.6.3 Выходные данные
+- `Dictionary` с расширенными полями `DictionaryEntry`
+
+### 5.6.4 Пример использования
+```python
+loader = JsonDictionaryLoader()
+dictionary = loader.load_from_json(Path("data/dictionaries/product_type.json"))
+# dictionary.entries[0].english_localization == "Consumer loan"
+# dictionary.entries[0].is_deleted == False
+```
+
+## 5.7 DictionaryRegistry (`src/loaders/dictionary_registry.py`)
+
+### 5.7.1 Назначение
+Центральное хранилище всех загруженных справочников с O(1) доступом.
+
+### 5.7.2 Ключевые методы
+| Метод | Сигнатура | Описание |
+|-------|-----------|----------|
+| `register` | `(dictionary: Dictionary) → None` | Регистрация справочника |
+| `get` | `(name: str) → Dictionary` | O(1) lookup по имени |
+| `resolve` | `(dict_name: str, code: str) → ResolveResult` | Код → человекочитаемое имя + метаданные |
+| `validate` | `(dict_name: str, code: str) → bool` | Проверка наличия кода в справочнике |
+| `load_from_json` | `(file_path: Path) → None` | Пакетная загрузка JSON через JsonDictionaryLoader |
+| `load_from_excel` | `(file_path, sheet_name, ...) → None` | Загрузка Excel через DictionaryLoader |
+| `list_dictionaries` | `() → List[str]` | Список зарегистрированных справочников |
+
+### 5.7.3 Потребители
+- `SpelFunctions.is_dictionary_value` — валидация через `registry.validate()`
+- `ValueGenerator` — генерация значений через `registry.get(dict_name).get_random()`
+- `JsonValidator` — валидация dictionary-полей, `resolved_value` в ошибках
+- `ReportFormatter` — резолв кодов в человекочитаемые имена через `registry.resolve()`
+
+### 5.7.4 Пример использования
+```python
+registry = DictionaryRegistry()
+registry.load_from_json(Path("data/dictionaries/product_type.json"))
+registry.load_from_excel(Path("data/dictionaries.xlsx"), sheet_name="CHANNEL")
+
+# O(1) resolve
+result = registry.resolve("PRODUCT_TYPE", "10410001")
+# ResolveResult(code="10410001", name="PACL", english_name="Consumer loan", is_valid=True)
+
+# Валидация
+registry.validate("PRODUCT_TYPE", "10410001")  # True
+registry.validate("PRODUCT_TYPE", "99999")     # False
+```
+
+## 5.8 SpelParser (`src/core/spel_parser.py`)
+
+### 5.8.1 Назначение
 Парсинг SpEL-строк в AST.
 
-### 5.6.2 Алгоритм токенизации
+### 5.8.2 Алгоритм токенизации
 ```python
 token_pattern = r"(\w+|[().,[\]]|==|!=|<=|>=|<|>|&&|\|\||!)"
 tokens = re.findall(token_pattern, expression)
 ```
 **Пример:** `"data.inn"` → `['data', '.', 'inn']`
 
-### 5.6.3 Алгоритм парсинга
+### 5.8.3 Алгоритм парсинга
 ```
 parse(expression):
   1. tokens = _tokenize(expression)
@@ -1103,7 +1216,7 @@ _parse_primary():
   3. Иначе → _parse_variable()
 ```
 
-### 5.6.4 Поддерживаемые конструкции
+### 5.8.4 Поддерживаемые конструкции
 | Конструкция | AST Node |
 |-------------|----------|
 | Литерал (42, "test", true, null) | LiteralNode |
@@ -1112,9 +1225,9 @@ _parse_primary():
 
 **Текущее ограничение:** Не поддерживает and/or/in/anyMatch — только простые выражения.
 
-## 5.7 SpelAST (`src/core/spel_ast.py`)
+## 5.9 SpelAST (`src/core/spel_ast.py`)
 
-### 5.7.1 NodeType enum
+### 5.9.1 NodeType enum
 ```python
 class NodeType(str, Enum):
     LITERAL = "literal"
@@ -1130,7 +1243,7 @@ class NodeType(str, Enum):
     HAS_SIZE = "has_size"
 ```
 
-### 5.7.2 Все 11 узлов
+### 5.9.2 Все 11 узлов
 | Узел | Поля | Назначение |
 |------|------|------------|
 | `LiteralNode` | value | Число, строка, bool, null |
@@ -1145,9 +1258,9 @@ class NodeType(str, Enum):
 | `NoneMatchNode` | collection, condition | .noneMatch(...) |
 | `HasSizeNode` | collection, size | .hasSize(...) |
 
-## 5.8 SpelFunctions (`src/core/spel_functions.py`)
+## 5.10 SpelFunctions (`src/core/spel_functions.py`)
 
-### 5.8.1 Текущие 4 функции
+### 5.10.1 Текущие 4 функции
 
 | Функция | Сигнатура | Описание |
 |---------|-----------|----------|
@@ -1156,15 +1269,15 @@ class NodeType(str, Enum):
 | `digits_check` | (value, integer=10, fraction=2) → bool | Цифры до/после запятой |
 | `is_dictionary_value` | (dict_name, value, _filter=None) → bool | Наличие в справочнике |
 
-### 5.8.2 Заглушки
-`is_dictionary_value` использует mock-словарь. В production — подключить DictionaryLoader.
+### 5.10.2 Реализация is_dictionary_value
+`is_dictionary_value` реализована через `DictionaryRegistry.validate()`. При вызове выполняется O(1) lookup в реестре: если справочник `dict_name` зарегистрирован и содержит `value` — возвращается `True`. Ранее использовалась заглушка с mock-словарём.
 
-## 5.9 ConditionEvaluator (✅ ЗАВЕРШЁН)
+## 5.11 ConditionEvaluator (✅ ЗАВЕРШЁН)
 
-### 5.9.1 Назначение
+### 5.11.1 Назначение
 Выполнение SpEL-выражений на JSON-данных → True/False.
 
-### 5.9.2 Алгоритм
+### 5.11.2 Алгоритм
 ```
 evaluate(expression, data, context):
   1. ast = SpelParser.parse(expression)
@@ -1178,7 +1291,7 @@ _eval_node(node, data, context):
   - FunctionCallNode → _call_function(node.func_name, node.args)
 ```
 
-### 5.9.3 Контекст выполнения
+### 5.11.3 Контекст выполнения
 | Переменная | Описание |
 |------------|----------|
 | `this` | Текущий объект |
@@ -1187,12 +1300,12 @@ _eval_node(node, data, context):
 | `parent2` | Родитель родителя |
 | `parent3` | Три уровня вверх |
 
-## 5.10 ConditionalValidator (✅ ЗАВЕРШЁН)
+## 5.12 ConditionalValidator (✅ ЗАВЕРШЁН)
 
-### 5.10.1 Назначение
+### 5.12.1 Назначение
 Проверка УО полей: если условие выполнено → поле должно иметь значение.
 
-### 5.10.2 Алгоритм
+### 5.12.2 Алгоритм
 ```
 validate(data, schema_fields):
   errors = []
@@ -1205,12 +1318,14 @@ validate(data, schema_fields):
   Вернуть errors
 ```
 
-## 5.11 ValueGenerator (✅ ЗАВЕРШЁН)
+## 5.13 ValueGenerator (✅ ЗАВЕРШЁН)
 
-### 5.11.1 Назначение
+### 5.13.1 Назначение
 Генерация валидных значений для новых полей.
 
-### 5.11.2 Генерация для каждого типа
+**Интеграция с DictionaryRegistry:** принимает `registry: DictionaryRegistry` (опционально, backward compatible). При наличии Registry — генерация значений из справочников через `registry.get(dict_name).get_random()`, иначе — fallback.
+
+### 5.13.2 Генерация для каждого типа
 | Тип | Генератор |
 |-----|-----------|
 | string | Faker.ru_RU.name/text, учитывая maxLength |
@@ -1222,23 +1337,23 @@ validate(data, schema_fields):
 | array | [gen_value()] * DEFAULT_ARRAY_SIZE |
 | object | Рекурсия по properties |
 
-### 5.11.3 Специальные генераторы
+### 5.13.3 Специальные генераторы
 | Поле | Генератор |
 |------|-----------|
 | UUID | uuid4() с кэшированием |
 | ИНН | 10/12 цифр с контрольной суммой |
 | СНИЛС | 11 цифр с контрольной суммой |
 
-### 5.11.4 UUID-кэширование
+### 5.13.4 UUID-кэширование
 ```python
 uuid_cache = {}  # {field_name: uuid}
 # При генерации: если field_name in cache → вернуть кэш
 # Иначе: сгенерировать, сохранить в кэш
 ```
 
-## 5.12 JsonActualizer (✅ ЗАВЕРШЁН)
+## 5.14 JsonActualizer (✅ ЗАВЕРШЁН)
 
-### 5.12.1 Алгоритм
+### 5.14.1 Алгоритм
 ```
 actualize(old_json, schema_diff, new_schema, dictionaries):
   1. result = copy(old_json)
@@ -1261,14 +1376,16 @@ actualize(old_json, schema_diff, new_schema, dictionaries):
   ROLLBACK: При критической ошибке → восстановить из BACKUP
 ```
 
-## 5.13 JsonValidator (✅ ЗАВЕРШЁН)
+## 5.15 JsonValidator (✅ ЗАВЕРШЁН)
 
-### 5.13.1 Назначение
+### 5.15.1 Назначение
 Двойная валидация: JSON Schema + SpEL.
 
-### 5.13.2 Алгоритм
+**Интеграция с DictionaryRegistry:** принимает `registry: DictionaryRegistry` (опционально, backward compatible). При наличии Registry — валидация dictionary-полей через `registry.validate()`, добавление `resolved_value` в ошибки (код → человекочитаемое имя).
+
+### 5.15.2 Алгоритм
 ```
-validate(data, schema):
+validate(data, schema, registry=None):
   errors = []
   1. JSON Schema валидация:
      validator = Draft7Validator(schema)
@@ -1277,7 +1394,12 @@ validate(data, schema):
   2. SpEL валидация:
      spel_errors = ConditionalValidator.validate(data, schema_fields)
      errors.extend(spel_errors)
-  3. Вернуть (len(errors) == 0, errors)
+  3. Dictionary валидация (если registry):
+     Для каждого поля с dictionary:
+       if not registry.validate(field.dictionary, field.value):
+         resolved = registry.resolve(field.dictionary, field.value) if registry else None
+         errors.append(ValidationError with resolved_value)
+  4. Вернуть (len(errors) == 0, errors)
 ```
 
 ---
@@ -1912,7 +2034,7 @@ python -m src.cli validate \
 | `test_logger.py` | ~5 | Логирование |
 | `test_spel_parser.py` | ~20 | SpelParser AST (broken — см. раздел 14) |
 
-**Итого:** 412 unit-тестов (100% pass rate)
+**Итого:** 484 unit-тестов (100% pass rate)
 
 ## 10.3 Интеграционные тесты (ПЛАНИРУЕТСЯ)
 
@@ -1989,7 +2111,9 @@ json-scenario-generator/
 │   │   ├── schema_parser.py        # SchemaParser (JSON Schema → FieldMetadata)
 │   ├── loaders/
 │   │   ├── __init__.py
-│   │   └── dictionary_loader.py    # DictionaryLoader (Excel → Dictionary)
+│   │   ├── dictionary_loader.py    # DictionaryLoader (Excel → Dictionary)
+│   │   ├── json_dictionary_loader.py # JsonDictionaryLoader (JSON → Dictionary)
+│   │   └── dictionary_registry.py  # DictionaryRegistry (O(1) lookup/resolve/validate)
 │   ├── core/
 │   │   ├── __init__.py             # ⚠️ BROKEN IMPORTS (см. раздел 14)
 │   │   ├── schema_comparator.py    # SchemaComparator
@@ -2096,6 +2220,15 @@ CLI (analyze_changes.py)
 DictionaryLoader
   └── Dictionary, DictionaryEntry
   └── Excel utils, pandas
+
+JsonDictionaryLoader
+  └── Dictionary, DictionaryEntry (расширенные поля)
+
+DictionaryRegistry
+  └── DictionaryLoader (Excel)
+  └── JsonDictionaryLoader (JSON)
+  └── SpelFunctions.is_dictionary_value
+  └── ValueGenerator, JsonValidator, ReportFormatter
 
 SpelParser
   └── SpelAST (11 nodes)
@@ -2668,7 +2801,7 @@ python -m src.cli generate \
 | FR-002 | Актуализация JSON | P0 | ConditionEvaluator, ValueGenerator, JsonActualizer, ConditionalValidator | 0 | ✅ Завершено |
 | FR-003 | Валидация JSON | P1 | JsonValidator, ConditionalValidator | 0 | ✅ Завершено |
 | FR-004 | Генерация отчётов | P0 | ReportFormatter | 12 | ✅ Завершено |
-| FR-005 | Управление справочниками | P1 | DictionaryLoader, Dictionary | 19 | ✅ Частично |
+| FR-005 | Управление справочниками | P1 | DictionaryLoader, JsonDictionaryLoader, DictionaryRegistry, Dictionary | 19+ | ✅ Завершено |
 | FR-006 | CLI-интерфейс | P1 | analyze_changes.py, (actualize, validate) | 0 | ✅/🔴 Частично |
 
 ---
@@ -2689,7 +2822,7 @@ python -m src.cli generate \
 
 ---
 
-*Последнее обновление: 14 апреля 2026*
+*Последнее обновление: 26 мая 2026*
 *Автор: Senior Business Analyst (AI)*
 *Статус: ✅ Утверждена*
 
