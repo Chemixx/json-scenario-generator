@@ -66,8 +66,8 @@ def test_load_dictionary_classic_format(mock_load_excel, loader, sample_datafram
 
     assert dictionary.name == "TestSheet"
     assert len(dictionary) == 3
-    assert dictionary.get_by_code("01").name == "Первый"
-    assert dictionary.get_by_code("02").name == "Второй"
+    assert dictionary.get_by_code(1).name == "Первый"
+    assert dictionary.get_by_code(2).name == "Второй"
 
 
 @patch('src.loaders.dictionary_loader.load_excel')
@@ -81,7 +81,7 @@ def test_load_dictionary_with_description(mock_load_excel, loader, sample_datafr
         description_column="Описание"
     )
 
-    entry = dictionary.get_by_code("01")
+    entry = dictionary.get_by_code(1)
     assert entry.description == "Описание 1"
 
 
@@ -101,7 +101,7 @@ def test_load_dictionary_skip_empty_rows(mock_load_excel, loader):
 
     # Должна быть загружена только 1 валидная строка
     assert len(dictionary) == 1
-    assert dictionary.get_by_code("01").name == "Первый"
+    assert dictionary.get_by_code(1).name == "Первый"
 
 
 @patch('src.loaders.dictionary_loader.load_excel')
@@ -158,8 +158,8 @@ def test_load_dictionary_by_code(mock_load_excel, loader, sample_dataframe_group
 
     assert dictionary.name == "STATUS"
     assert len(dictionary) == 2
-    assert dictionary.get_by_code("11730070").name == "Активный"
-    assert dictionary.get_by_code("11730071").name == "Неактивный"
+    assert dictionary.get_by_code(11730070).name == "Активный"
+    assert dictionary.get_by_code(11730071).name == "Неактивный"
 
 
 @patch('src.loaders.dictionary_loader.load_excel')
