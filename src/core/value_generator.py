@@ -60,9 +60,11 @@ class ValueGenerator:
         self,
         config: Optional[GeneratorConfig] = None,
         dictionary_loader: Optional[DictionaryLoader] = None,
+        registry: Optional[Any] = None,  # DictionaryRegistry, Any для избежания циклического импорта
     ) -> None:
         self.config = config or GeneratorConfig()
         self.dictionary_loader = dictionary_loader
+        self._registry = registry
         self._random = random.Random()
         if self.config.seed is not None:
             self._random.seed(self.config.seed)
@@ -90,7 +92,7 @@ class ValueGenerator:
         if field_meta.default is not None:
             return field_meta.default
 
-        if field_meta.dictionary and self.dictionary_loader:
+        if field_meta.dictionary and (self._registry is not None or self.dictionary_loader is not None):
             return self._generate_from_dictionary(field_meta)
 
         if field_meta.field_type == "array":
@@ -219,7 +221,19 @@ class ValueGenerator:
     def _generate_from_dictionary(self, field_meta: FieldMetadata) -> str:
         """Генерация значения из справочника."""
         dict_name = field_meta.dictionary
-        if not dict_name or not self.dictionary_loader:
+        if not dict_name:
+            raise ValueError("Справочник не указан")
+
+        # Предпочтительно: Registry (O(1) поиск по имени)
+        if self._registry is not None:
+            dictionary = self._registry.get(dict_name)
+            if dictionary is None:
+                raise ValueError(f"Справочник '{dict_name}' не найден в Registry")
+            entry = dictionary.get_random()
+            return str(entry.code)
+
+        # Fallback: DictionaryLoader (старый механизм)
+        if not self.dictionary_loader:
             raise ValueError("Справочник не указан или загрузчик отсутствует")
 
         dictionary: Optional[Dictionary] = self.dictionary_loader.get_cached_dictionary(dict_name)
