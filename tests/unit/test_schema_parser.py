@@ -428,3 +428,74 @@ def test_parse_is_collection_flag():
 
     # Массив - это коллекция
     assert fields["tags"].is_collection is True
+
+
+# ============================================================================
+# ТЕСТЫ: Парсинг DQ-полей
+# ============================================================================
+
+class TestSchemaParserDQFields:
+    """Тесты парсинга DQ-полей (alwaysRequiredDqCode, conditionalDqCode, dictionaryDqCode)."""
+
+    def test_parse_always_required_dq_code(self):
+        parser = SchemaParser()
+        schema = {
+            "type": "object",
+            "properties": {
+                "productCd": {
+                    "type": "string",
+                    "alwaysRequiredDqCode": 12750001
+                }
+            },
+            "required": ["productCd"]
+        }
+        fields = parser.parse_schema(schema)
+        assert fields["productCd"].always_required_dq_code == 12750001
+
+    def test_parse_conditional_dq_code(self):
+        parser = SchemaParser()
+        schema = {
+            "type": "object",
+            "properties": {
+                "pledges": {
+                    "type": "string",
+                    "condition": {
+                        "expression": "eq(#root.loanTypeCd, 10340001)",
+                        "message": "Залог обязателен",
+                        "dqCode": 12750037
+                    },
+                    "conditionalDqCode": 12750038
+                }
+            }
+        }
+        fields = parser.parse_schema(schema)
+        assert fields["pledges"].conditional_dq_code == 12750038
+        assert fields["pledges"].condition.dq_code == 12750037
+
+    def test_parse_dictionary_dq_code(self):
+        parser = SchemaParser()
+        schema = {
+            "type": "object",
+            "properties": {
+                "productCd": {
+                    "type": "string",
+                    "dictionary": "PRODUCT_TYPE",
+                    "dictionaryDqCode": 12750010
+                }
+            }
+        }
+        fields = parser.parse_schema(schema)
+        assert fields["productCd"].dictionary_dq_code == 12750010
+
+    def test_dq_fields_default_none(self):
+        parser = SchemaParser()
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"}
+            }
+        }
+        fields = parser.parse_schema(schema)
+        assert fields["name"].always_required_dq_code is None
+        assert fields["name"].conditional_dq_code is None
+        assert fields["name"].dictionary_dq_code is None

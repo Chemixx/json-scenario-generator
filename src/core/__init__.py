@@ -32,6 +32,18 @@ from .json_actualizer import (
     ActualizationResult,
     RenamePair,
 )
+from .json_validator import (
+    JsonValidator,
+    ValidatorConfig,
+    BaseValidationError,
+    SchemaError,
+    RequiredError,
+    ConditionalError,
+    ConstraintError,
+    DictionaryError,
+    ValidationResult,
+    ValidationStatistics,
+)
 
 __all__ = [
     # Schema Comparator
@@ -70,4 +82,16 @@ __all__ = [
     'ActualizationChange',
     'ActualizationResult',
     'RenamePair',
+
+    # JsonValidator
+    'JsonValidator',
+    'ValidatorConfig',
+    'BaseValidationError',
+    'SchemaError',
+    'RequiredError',
+    'ConditionalError',
+    'ConstraintError',
+    'DictionaryError',
+    'ValidationResult',
+    'ValidationStatistics',
 ]

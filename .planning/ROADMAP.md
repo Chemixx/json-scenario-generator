@@ -94,7 +94,7 @@
 
 **Delivered:**
 - `src/core/json_actualizer.py` — применение SchemaDiff к JSON
-- `tests/unit/core/test_json_actualizer.py` — 39 тестов, покрытие 70%
+- `tests/unit/core/test_json_actualizer.py` — 104 теста, покрытие 100%
 - Добавление новых полей (О/УО/Н) с генерацией через ValueGenerator
 - Удаление полей из JSON
 - Модификация полей: сохранение/перегенерация/преобразование типов
@@ -104,14 +104,28 @@
 
 **Технический долг:**
 - TD-13: ~~SpEL-контекст для УО-полей~~ — ✅ ИСПРАВЛЕНО (24.05.2026): делегировано `ConditionalValidator._build_context()`, добавлен `field_path`, 4 теста без моков
-- TD-14: Покрытие 70% вместо 90% (не покрыты actualize_from_paths, StructureError)
+- TD-14: ~~Покрытие 70% вместо 90%~~ — ✅ ИСПРАВЛЕНО (24.05.2026): 104 теста, покрытие 100%
 - TD-15: `__import__('re')` в `_validate_value` — заменить на явный импорт
 
 ---
 
 ## Phase 8: JsonValidator
 
-**Status:** 🟡 In Progress
+**Status:** ✅ Complete (2026-05-22)
+
+**Delivered:**
+- `src/core/json_validator.py` — двойная валидация: JSON Schema Draft 2019-09 + SpEL-условия
+- `src/utils/constraint_utils.py` — 10 общих функций проверок ограничений
+- `tests/unit/core/test_json_validator.py` — 59 тестов
+- `tests/unit/test_constraint_utils.py` — 26 тестов
+- 5 шагов валидации: schema, required (О), conditional (УО), constraints, dictionaries
+- ValidatorConfig: конфигурация шагов, strict/lenient, DQ-коды, формат вывода
+- Иерархия ошибок: BaseValidationError + SchemaError, RequiredError, ConditionalError, ConstraintError, DictionaryError
+- ValidationResult с to_summary (tree/flat) и to_dict
+- validate_batch() и validate_from_paths() с автодетектом call
+- DQ-коды: парсинг 3 полей в SchemaParser, проброс в ошибки валидации
+- requirement_type (null/missing) в ConditionalValidator.ValidationError
+- Рефакторинг JsonActualizer: _validate_result удалён, _validate_value использует constraint_utils
 
 **Scope:**
 - Двойная валидация: JSON Schema + SpEL
@@ -155,6 +169,7 @@
 | TD-5 | ConditionalValidator missing | ✅ Fixed (36 tests) |
 | TD-6 | SpelFunctions incomplete | ✅ Fixed (34/34 functions) |
 | TD-16 | Emoji в runtime-коде ломают Windows-консоль | ✅ Fixed (24.05.2026) | Icon module, 160 emoji → ASCII, cp1251 safety net |
+| TD-14 | JsonActualizer: покрытие 70% вместо 90% | ✅ Fixed (24.05.2026) | 104 теста, покрытие 100%, строка 971 `# pragma: no cover` |
 
 ### Active 🔴🟠🟡
 

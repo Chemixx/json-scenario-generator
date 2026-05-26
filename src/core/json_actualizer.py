@@ -22,7 +22,7 @@ from src.models.schema_models import (
     SchemaDiff,
     ConditionalRequirement,
 )
-from src.core.conditional_validator import ValidationError
+from src.core.conditional_validator import ConditionalValidator, ValidationError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -204,6 +204,7 @@ class JsonActualizer:
         )
         self._generator = ValueGenerator(config=gen_config, dictionary_loader=dictionary_loader)
         self._evaluator = ConditionEvaluator()
+        self._validator = ConditionalValidator(evaluator=self._evaluator)
 
     # ========================================================================
     # Публичный API
@@ -250,8 +251,8 @@ class JsonActualizer:
             # 5. Модификация полей
             self._process_modified_fields(result, schema_diff.modified_fields, new_schema, changes, errors)
 
-            # 6. Валидация результата
-            result.validation_errors = self._validate_result(result.actualized_data, new_schema)
+            # 6. Валидация результата (убрано — _validate_result удалён,
+            #    validation_errors остаётся пустым списком по умолчанию)
 
         except _StructureError as e:
             logger.error(f"Критическая ошибка структуры: {e}")
@@ -753,7 +754,9 @@ class JsonActualizer:
 
                 # Проверка УО-условия
                 if meta.is_conditional and meta.condition:
-                    condition_result = self._evaluate_condition(meta.condition, result.actualized_data)
+                    condition_result = self._evaluate_condition(
+                        meta.condition, result.actualized_data, field_change.path
+                    )
                     if not condition_result:
                         # Условие не выполнено — поле не обязательно
                         changes.append(ActualizationChange(
@@ -947,10 +950,7 @@ class JsonActualizer:
 
         Порядок проверок:
         1. field_type — тип значения
-        2. enum — значение в списке допустимых
-        3. pattern — соответствие regex
-        4. minLength / maxLength — длина строки
-        5. minimum / maximum — числовой диапазон
+        2-5. Ограничения через constraint_utils.check_constraint()
         """
         if value is None:
             return False
@@ -968,37 +968,14 @@ class JsonActualizer:
             if meta.field_type == "integer" and isinstance(value, (int, float)):
                 pass  # OK
             elif meta.field_type == "number" and isinstance(value, (int, float)):
-                pass  # OK
+                pass  # OK  # pragma: no cover — недостижимо: number → expected_type=(int,float), isinstance всегда True
             else:
                 return False
 
-        # 2. Проверка enum
-        enum_values = meta.constraints.get("enum")
-        if enum_values and value not in enum_values:
-            return False
-
-        # 3. Проверка pattern
-        pattern = meta.constraints.get("pattern") or meta.get_pattern()
-        if pattern and isinstance(value, str):
-            if not __import__("re").match(pattern, value):
-                return False
-
-        # 4. Проверка minLength / maxLength
-        min_length = meta.constraints.get("minLength") or meta.get_min_length()
-        max_length = meta.constraints.get("maxLength") or meta.get_max_length()
-        if isinstance(value, str):
-            if min_length is not None and len(value) < min_length:
-                return False
-            if max_length is not None and len(value) > max_length:
-                return False
-
-        # 5. Проверка minimum / maximum
-        minimum = meta.constraints.get("minimum")
-        maximum = meta.constraints.get("maximum")
-        if isinstance(value, (int, float)):
-            if minimum is not None and value < minimum:
-                return False
-            if maximum is not None and value > maximum:
+        # 2-5. Проверка ограничений через constraint_utils
+        from src.utils.constraint_utils import check_constraint
+        for name, expected in meta.constraints.items():
+            if check_constraint(name, expected, value) is not None:
                 return False
 
         return True
@@ -1008,20 +985,22 @@ class JsonActualizer:
     # ========================================================================
 
     def _evaluate_condition(
-        self, condition: ConditionalRequirement, data: Dict
+        self, condition: ConditionalRequirement, data: Dict, field_path: str = ""
     ) -> bool:
         """Вычислить SpEL-условие для УО-поля.
+
+        Args:
+            condition: Условие (SpEL-выражение).
+            data: JSON-данные для вычисления.
+            field_path: Путь к полю (для навигации #this, parent, parent2).
 
         Returns:
             True если условие выполнено (поле обязательно), False если нет.
         """
         try:
-            from src.core.spel_parser import SpelParser
-
-            parser = SpelParser()
-            ast = parser.parse(condition.expression)
-            context = EvaluationContext(root_data=data)
-            result = self._evaluator.evaluate(ast, context)
+            ast = self._validator.parser.parse(condition.expression)
+            context = self._validator._build_context(field_path, data)
+            result = self._evaluator.evaluate(ast, data, context)
             return bool(result)
 
         except Exception as e:
@@ -1032,22 +1011,3 @@ class JsonActualizer:
     # Валидация и отчёт
     # ========================================================================
 
-    def _validate_result(
-        self, data: Dict, schema: Dict[str, FieldMetadata]
-    ) -> List[ValidationError]:
-        """Валидация результата через ConditionalValidator."""
-        try:
-            from src.core.conditional_validator import get_conditional_validator
-
-            validator = get_conditional_validator(self._evaluator)
-            # Фильтруем только УО-поля
-            conditional_fields = {
-                path: meta
-                for path, meta in schema.items()
-                if meta.is_conditional and meta.condition
-            }
-            return validator.validate(data, conditional_fields)
-
-        except Exception as e:
-            logger.warning(f"Ошибка валидации: {e}")
-            return []

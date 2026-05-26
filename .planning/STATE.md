@@ -1,6 +1,6 @@
 # Project State: json-scenario-generator
 
-**Analysis Date:** 2026-05-22
+**Analysis Date:** 2026-05-24
 
 ## Executive Summary
 
@@ -41,9 +41,9 @@
 | **ConditionEvaluator** | ✓ | 38 тестов, все операторы |
 | **ConditionalValidator** | ✓ | 36 тестов, УО-валидация |
 | **ValueGenerator** | ✓ | 34 теста, покрытие 94% |
-| **JsonActualizer** | ✓ | Применение SchemaDiff к JSON |
+| **JsonActualizer** | ✓ | 104 теста, покрытие 100% |
 | **JsonValidator** | ✓ | 5 шагов валидации, 59 тестов |
-| **Unit тесты** | ✓ | **400+ тестов проходят** |
+| **Unit тесты** | ✓ | **484 теста проходят** |
 
 ### In Progress (⚠️)
 
@@ -79,7 +79,7 @@
 | # | Проблема | Приоритет | Влияние |
 |---|----------|-----------|---------|
 | TD-13 | **SpEL-контекст для УО-полей в JsonActualizer** | ✅ Исправлено (24.05.2026) | Делегировано `ConditionalValidator._build_context()`, добавлен `field_path`, 4 теста без моков |
-| TD-14 | **Покрытие JsonActualizer 70%** | 🟡 Средний | Не покрыты: `actualize_from_paths`, `_StructureError`. ~~`_validate_result`~~ удалён в Phase 8 (заменён на JsonValidator) |
+| TD-14 | **Покрытие JsonActualizer 70%** | ✅ Исправлено (24.05.2026) | 104 теста, покрытие 100%. Строка 971 помечена `# pragma: no cover` (мёртвый код) |
 | TD-15 | **`__import__('re')` в `_validate_value`** | ✅ Исправлено | `_validate_value` теперь использует `constraint_utils.check_constraint()` |
 | TD-16 | **Emoji в runtime-коде ломают Windows-консоль** | ✅ Исправлено (24.05.2026) | `src/utils/icons.py` создан (31 ASCII-константа), 160 эмодзи → Icon, `format_text()` → ASCII, `format_markdown()` → emoji, `to_icon()` в enums, `sys.stdout.reconfigure()` safety net |
 | TD-17 | **Loguru логи смешаны с отчётом в STDOUT** | 🟡 Средний | 20+ строк INFO/DEBUG перед полезным выводом. Решение: CLI → WARNING в STDERR, INFO в файл; ReportFormatter → только STDOUT |
@@ -111,7 +111,7 @@
 
 ## Roadmap Priorities
 
-### ✅ Завершено (Этапы 0–7)
+### ✅ Завершено (Этапы 0–8)
 
 | # | Задача | Статус | Тесты |
 |---|--------|--------|-------|
@@ -121,18 +121,12 @@
 | 4 | SpelFunctions (34/34) | ✅ Complete | — |
 | 5 | ValueGenerator | ✅ Complete | 34 теста (94% покрытие) |
 | 6 | JsonActualizer | ✅ Complete | — |
-
-### P0 (Blockers) — Критично для MVP
-
-| # | Задача | Оценка | Зависимости | Статус |
-|---|--------|--------|-------------|--------|
-| 8 | JsonValidator | 2 дня | JsonValidator | ✅ Complete 59 тестов |
+| 7 | JsonValidator | ✅ Complete | 59 тестов |
 
 ### P1 (MVP) — Релиз
 
 | # | Задача | Оценка | Зависимости |
 |---|--------|--------|-------------|
-| 8 | ScenarioGenerator | 3 дня | Лист 19, ValueGenerator |
 | 9 | CLI команды | 2 дня | Все выше |
 
 ### P2 (Post-MVP)

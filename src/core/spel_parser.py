@@ -76,8 +76,10 @@ class SpelParser:
             lambda t: LiteralNode(t[0])
         )
 
-        # Строки (в кавычках)
-        string = QuotedString('"', escChar="\\").setParseAction(
+        # Строки (в двойных или одинарных кавычках)
+        string_dq = QuotedString('"', escChar="\\")
+        string_sq = QuotedString("'", escChar="\\")
+        string = (string_dq | string_sq).setParseAction(
             lambda t: LiteralNode(t[0])
         )
 
@@ -98,16 +100,13 @@ class SpelParser:
         # ========== ПОЛЯ ==========
 
         # Простой идентификатор (поле)
-        identifier = Word(alphas + "_$#", alphanums + "_$")
+        # # добавлен для поддержки #this, #root, #parent
+        identifier = Word(alphas + "_$#", alphanums + "_$#")
 
         # Путь к полю: field, parent.field, parent2.field, rootBean.loanRequest.callCdExt
+        # Также поддерживает #this.field, #root.field, #parent.field, this.field
         field_path = delimitedList(identifier, delim=".").setParseAction(
             lambda t: self._create_field_node(".".join(t))
-        )
-
-        # Ключевое слово "this"
-        this_keyword = CaselessKeyword("this").setParseAction(
-            lambda t: FieldNode("this")
         )
 
         # ========== ФУНКЦИИ ==========
@@ -119,18 +118,190 @@ class SpelParser:
         args = Optional(delimitedList(expression))
 
         # Вызов функции: functionName(arg1, arg2, ...)
-        function_call = (
-            identifier + Suppress("(") + Group(args) + Suppress(")")
-        ).setParseAction(self._create_function_node)
+        # Используем ~ (not) для исключения ключевых слов из identifier
+        from pyparsing import FollowedBy, NotAny
 
         # ========== ОПЕРАТОРЫ ==========
+        # Используем CaselessKeyword + FollowedBy для работы с notNull( и т.д.
 
-        # NOT (унарный)
+        # NOTNULL - проверка на не-null (ПЕРЕД not!)
+        notnull_expr = (
+            CaselessKeyword("notnull") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.NOT_NULL, t[1][0]))
+
+        # NOTBLANK - проверка на не-pustую строку (ПЕРЕД not!)
+        notblank_expr = (
+            CaselessKeyword("notblank") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.NOT_BLANK, t[1][0]))
+
+        # NOTIN - оператор непринадлежности (ПЕРЕД in!)
+        notin_expr = (
+            CaselessKeyword("notin") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression)) + Suppress(")")
+        ).setParseAction(lambda t: NaryOpNode(NodeType.NOT_IN, t[1]))
+
+        # NOT (унарный) - проверяем ПЕРЕД function_call
         not_expr = (
-            CaselessKeyword("not") + Suppress("(") + expression + Suppress(")")
+            CaselessKeyword("not") + FollowedBy("(") + Suppress("(") + expression + Suppress(")")
         ).setParseAction(lambda t: UnaryOpNode(NodeType.NOT, t[1]))
 
+        # ISNULL - проверка на null
+        isnull_expr = (
+            CaselessKeyword("isnull") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.IS_NULL, t[1][0]))
+
+        # ISBLANK - проверка на пустую строку
+        isblank_expr = (
+            CaselessKeyword("isblank") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.IS_BLANK, t[1][0]))
+
+        # IN - оператор принадлежности
+        in_expr = (
+            CaselessKeyword("in") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression)) + Suppress(")")
+        ).setParseAction(lambda t: NaryOpNode(NodeType.IN, t[1]))
+
+        # EQ - оператор равенства
+        eq_expr = (
+            CaselessKeyword("eq") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: BinaryOpNode(NodeType.EQ, t[1][0], t[1][1]))
+
+        # NOTEQ - оператор неравенства
+        noteq_expr = (
+            CaselessKeyword("noteq") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: BinaryOpNode(NodeType.NOT_EQ, t[1][0], t[1][1]))
+
+        # AND - логическое И
+        and_expr = (
+            CaselessKeyword("and") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression)) + Suppress(")")
+        ).setParseAction(lambda t: NaryOpNode(NodeType.AND, t[1]))
+
+        # OR - логическое ИЛИ
+        or_expr = (
+            CaselessKeyword("or") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression)) + Suppress(")")
+        ).setParseAction(lambda t: NaryOpNode(NodeType.OR, t[1]))
+
+        # Исключаем все SpEL операторы и функции из function_name
+        reserved = (
+            # Логические
+            CaselessKeyword("not") | CaselessKeyword("and") | CaselessKeyword("or") | CaselessKeyword("in") |
+            # Сравнения
+            CaselessKeyword("eq") | CaselessKeyword("noteq") | CaselessKeyword("ne") |
+            CaselessKeyword("eqorgreater") | CaselessKeyword("eqorless") |
+            CaselessKeyword("gt") | CaselessKeyword("lt") | CaselessKeyword("gte") | CaselessKeyword("lte") |
+            # Null-проверки (notnull, notblank BEFORE not!)
+            CaselessKeyword("notnull") | CaselessKeyword("notblank") | CaselessKeyword("notin") |
+            CaselessKeyword("isnull") | CaselessKeyword("isblank") |
+            # Массивы
+            CaselessKeyword("anymatch") | CaselessKeyword("allmatch") | CaselessKeyword("nonematch") |
+            CaselessKeyword("filter") | CaselessKeyword("map") | CaselessKeyword("hassize") | CaselessKeyword("size") |
+            CaselessKeyword("notemptylist") | CaselessKeyword("containsall") |
+            # Даты
+            CaselessKeyword("currentdate") | CaselessKeyword("tolocaldate") |
+            CaselessKeyword("minusyears") | CaselessKeyword("minusdays") |
+            CaselessKeyword("isafter") | CaselessKeyword("compareto") |
+            # Строки
+            CaselessKeyword("length") |
+            # Бизнес-функции
+            CaselessKeyword("isvalidtaxnum") | CaselessKeyword("isvaliduuid") |
+            CaselessKeyword("digitscheck") | CaselessKeyword("isdictionaryvalue") |
+            # Вызов методов
+            CaselessKeyword("call")
+        )
+        function_name = ~reserved + identifier
+        function_call = (
+            function_name + FollowedBy("(") + Suppress("(") + Group(args) + Suppress(")")
+        ).setParseAction(self._create_function_node)
+
         # ========== БАЗОВОЕ ВЫРАЖЕНИЕ (КРИТИЧЕСКИ ВАЖНЫЙ ПОРЯДОК!) ==========
+
+        # Операторы массивов
+        anymatch_expr = (
+            CaselessKeyword("anymatch") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: AnyMatchNode(t[1][0], t[1][1]))
+
+        allmatch_expr = (
+            CaselessKeyword("allmatch") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: AllMatchNode(t[1][0], t[1][1]))
+
+        nonematch_expr = (
+            CaselessKeyword("nonematch") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: NoneMatchNode(t[1][0], t[1][1]))
+
+        filter_expr = (
+            CaselessKeyword("filter") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: FilterNode(t[1][0], t[1][1]))
+
+        map_expr = (
+            CaselessKeyword("map") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: MapNode(t[1][0], t[1][1]))
+
+        hassize_expr = (
+            CaselessKeyword("hassize") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: HasSizeNode(t[1][0], t[1][1]))
+
+        size_expr = (
+            CaselessKeyword("size") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.SIZE, t[1][0]))
+
+        notemptylist_expr = (
+            CaselessKeyword("notemptylist") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.NOT_EMPTY_LIST, t[1][0]))
+
+        containsall_expr = (
+            CaselessKeyword("containsall") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: BinaryOpNode(NodeType.CONTAINS_ALL, t[1][0], t[1][1]))
+
+        # Операторы дат
+        currentdate_expr = (
+            CaselessKeyword("currentdate") + FollowedBy("(") + Suppress("(") + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.CURRENT_DATE, LiteralNode(None)))
+
+        tolocaldate_expr = (
+            CaselessKeyword("tolocaldate") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.TO_LOCAL_DATE, t[1][0]))
+
+        minusyears_expr = (
+            CaselessKeyword("minusyears") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: CallMethodNode(t[1][0], "minus_years", t[1][1:]))
+
+        minusdays_expr = (
+            CaselessKeyword("minusdays") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: CallMethodNode(t[1][0], "minus_days", t[1][1:]))
+
+        isafter_expr = (
+            CaselessKeyword("isafter") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: CallMethodNode(t[1][0], "is_after", t[1][1:]))
+
+        compareto_expr = (
+            CaselessKeyword("compareto") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression, min=2, max=2)) + Suppress(")")
+        ).setParseAction(lambda t: CallMethodNode(t[1][0], "compare_to", t[1][1:]))
+
+        # Операторы строк
+        length_expr = (
+            CaselessKeyword("length") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.LENGTH, t[1][0]))
+
+        # Бизнес-операторы
+        isvalidtaxnum_expr = (
+            CaselessKeyword("isvalidtaxnum") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.IS_VALID_TAX_NUM, t[1][0]))
+
+        isvaliduuid_expr = (
+            CaselessKeyword("isvaliduuid") + FollowedBy("(") + Suppress("(") + Group(expression) + Suppress(")")
+        ).setParseAction(lambda t: UnaryOpNode(NodeType.IS_VALID_UUID, t[1][0]))
+
+        digitscheck_expr = (
+            CaselessKeyword("digitscheck") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression)) + Suppress(")")
+        ).setParseAction(lambda t: NaryOpNode(NodeType.DIGITS_CHECK, t[1]))
+
+        isdictionaryvalue_expr = (
+            CaselessKeyword("isdictionaryvalue") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression)) + Suppress(")")
+        ).setParseAction(lambda t: NaryOpNode(NodeType.IS_DICTIONARY_VALUE, t[1]))
+
+        # Вызов методов
+        call_expr = (
+            CaselessKeyword("call") + FollowedBy("(") + Suppress("(") + Group(delimitedList(expression)) + Suppress(")")
+        ).setParseAction(lambda t: self._create_function_node(["call", t[1]]))
+
         base_expr = (
             # 1. ЛИТЕРАЛЫ ПЕРВЫМИ (чтобы не конфликтовать с полями)
             number
@@ -138,11 +309,42 @@ class SpelParser:
             | true_literal
             | false_literal
             | null_literal
-            # 2. Специальные конструкции
+            # 2. Специальные конструкции (ПЕРЕД function_call!)
+            | notnull_expr
+            | notblank_expr
+            | notin_expr
+            | isnull_expr
+            | isblank_expr
             | not_expr
-            | this_keyword
+            | in_expr
+            | eq_expr
+            | noteq_expr
+            | and_expr
+            | or_expr
+            | anymatch_expr
+            | allmatch_expr
+            | nonematch_expr
+            | filter_expr
+            | map_expr
+            | hassize_expr
+            | size_expr
+            | notemptylist_expr
+            | containsall_expr
+            | currentdate_expr
+            | tolocaldate_expr
+            | minusyears_expr
+            | minusdays_expr
+            | isafter_expr
+            | compareto_expr
+            | length_expr
+            | isvalidtaxnum_expr
+            | isvaliduuid_expr
+            | digitscheck_expr
+            | isdictionaryvalue_expr
+            | call_expr
+            # 3. Функции (остальные)
             | function_call
-            # 3. Поля В КОНЦЕ (catch-all для идентификаторов)
+            # 4. Поля В КОНЦЕ (catch-all для идентификаторов, включая this, this.field, #this.field)
             | field_path
         )
 
@@ -167,10 +369,13 @@ class SpelParser:
         else:
             path_str = path
 
-        # Проверка parent2, parent3
-        if path_str.startswith("parent"):
+        # Нормализация: убираем # префикс
+        normalized_path = path_str.lstrip("#")
+
+        # Проверка parent2, parent3, #parent2, #parent3
+        if normalized_path.startswith("parent"):
             # Извлекаем уровень
-            parts = path_str.split(".", 1)
+            parts = normalized_path.split(".", 1)
             parent_part = parts[0]
             sub_path = parts[1] if len(parts) > 1 else None
 
@@ -185,18 +390,21 @@ class SpelParser:
 
             return ParentNNode(level, sub_path)
 
-        # Проверка rootBean / #rootBean / root
+        # Проверка rootBean / #rootBean / root / #root
         elif (
-            path_str.startswith("rootBean.")
-            or path_str.startswith("#rootBean.")
-            or path_str.startswith("root.")
+            normalized_path.startswith("rootBean.")
+            or normalized_path.startswith("root.")
         ):
-            sub_path = path_str.split(".", 1)[1]
+            sub_path = normalized_path.split(".", 1)[1]
             return RootNode(sub_path)
+
+        # Проверка this / #this / this.field / #this.field
+        elif normalized_path == "this" or normalized_path.startswith("this."):
+            return FieldNode(normalized_path)
 
         # Обычное поле
         else:
-            return FieldNode(path_str)
+            return FieldNode(normalized_path)
 
     def _create_function_node(self, tokens: List[Any]) -> ASTNode:
         """
