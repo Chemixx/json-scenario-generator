@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "direction": "request",
+  "stageName": "call1",
+  "version": "070",
+  "subVersion": "",
+  "dataQuality": false,
+  "type": "object",
+  "properties": {
+    "loanRequest": {
+      "type": "object",
+      "required": ["creditAmt", "productCdExt", "channelCdExt"],
+      "properties": {
+        "creditAmt": {
+          "type": "integer",
+          "description": "Сумма кредита",
+          "maxIntLength": 10
+        },
+        "productCdExt": {
+          "type": "integer",
+          "description": "Код продукта",
+          "dictionary": "PRODUCT_TYPE",
+          "maxIntLength": 10
+        },
+        "channelCdExt": {
+          "type": "integer",
+          "description": "Код канала продаж",
+          "dictionary": "SALE_CHANNEL",
+          "maxIntLength": 10
+        },
+        "firstName": {
+          "type": "string",
+          "description": "Имя",
+          "maxLength": 100,
+          "condition": {
+            "expression": "notNull(#this.regionCd)",
+            "message": "Обязателен при указании региона"
+          }
+        },
+        "additionalInfo": {
+          "type": "string",
+          "description": "Дополнительная информация",
+          "maxLength": 500,
+          "condition": {
+            "expression": "and(notNull(#parent.regionCd), in(#parent.channelCdExt, 10620002, 10620013))",
+            "message": "Обязателен при определенном канале и регионе"
+          }
+        },
+        "nstAppTypeCdExt": {
+          "type": "integer",
+          "description": "Код типа заявки",
+          "maxIntLength": 10,
+          "dictionary": "NST_APP_TYPE",
+          "condition": {
+            "expression": "anyMatch(#rootBean.loanRequest.creditParameters, eq(productCdExt, 10410053))",
+            "message": "Обязателен при наличии продукта 10410053"
+          }
+        },
+        "relatedLoanRequestExtId": {
+          "type": "string",
+          "description": "ID связанной заявки",
+          "maxLength": 50,
+          "condition": {
+            "expression": "and(eq(#parent.channelCdExt, 10620014), anyMatch(#rootBean.loanRequest.creditParameters, eq(productCdExt, 10410017)))",
+            "message": "Обязателен при канале 10620014 и продукте 10410017"
+          }
+        },
+        "comment": {
+          "type": "string",
+          "description": "Комментарий",
+          "maxLength": 200
+        },
+        "agreementDate": {
+          "type": "string",
+          "description": "Дата договора",
+          "format": "date"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "UUID заявки",
+          "format": "uuid",
+          "maxLength": 36
+        },
+        "extCreateDttm": {
+          "type": "string",
+          "description": "Дата-время создания",
+          "format": "date-time"
+        },
+        "inn": {
+          "type": "string",
+          "description": "ИНН",
+          "pattern": "^\\d{10,12}$",
+          "minLength": 10,
+          "maxLength": 12
+        },
+        "amount": {
+          "type": "number",
+          "description": "Сумма",
+          "minimum": 1000,
+          "maximum": 10000000
+        },
+        "status": {
+          "type": "string",
+          "description": "Статус",
+          "enum": ["DRAFT", "APPROVED", "REJECTED"]
+        },
+        "loanTerm": {
+          "type": "integer",
+          "description": "Срок кредита (месяцы)",
+          "minimum": 1,
+          "maximum": 360,
+          "maxIntLength": 3
+        },
+        "interestRate": {
+          "type": "number",
+          "description": "Процентная ставка",
+          "minimum": 0.1
+        },
+        "loanRequestExtId": {
+          "type": "string",
+          "description": "Внешний ID заявки",
+          "maxLength": 50
+        },
+        "reprocessFlg": {
+          "type": "boolean",
+          "description": "Признак переобработки"
+        },
+        "regionCd": {
+          "type": "integer",
+          "description": "Код региона",
+          "dictionary": "REGION",
+          "maxIntLength": 10
+        },
+        "sendChannelInfo": {
+          "type": "object",
+          "description": "Информация о канале отправки",
+          "required": ["aggregatorCdExt"],
+          "properties": {
+            "aggregatorCdExt": {
+              "type": "integer",
+              "description": "Код агрегатора",
+              "maxIntLength": 10
+            },
+            "sourceCdExt": {
+              "type": "integer",
+              "description": "Код источника",
+              "dictionary": "SOURCE_CD",
+              "maxIntLength": 10
+            }
+          }
+        },
+        "creditParameters": {
+          "type": "array",
+          "description": "Кредитные параметры",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "productCdExt": {
+                "type": "integer",
+                "description": "Код продукта",
+                "dictionary": "PRODUCT_TYPE",
+                "maxIntLength": 10
+              },
+              "creditAmt": {
+                "type": "integer",
+                "description": "Сумма кредита",
+                "maxIntLength": 10
+              },
+              "term": {
+                "type": "integer",
+                "description": "Срок (месяцы)",
+                "minimum": 1,
+                "maximum": 360
+              }
+            }
+          }
+        },
+        "guarantors": {
+          "type": "array",
+          "description": "Поручители",
+          "items": {
+            "type": "object",
+            "properties": {
+              "fullName": {
+                "type": "string",
+                "description": "ФИО поручителя",
+                "maxLength": 200
+              },
+              "inn": {
+                "type": "string",
+                "description": "ИНН поручителя",
+                "pattern": "^\\d{10,12}$",
+                "minLength": 10,
+                "maxLength": 12
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["loanRequest"]
+}
