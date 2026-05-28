@@ -2,7 +2,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-0.1.0--dev-orange.svg)]()
-[![Tests](https://img.shields.io/badge/tests-541%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-590%20passed-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 [![Status](https://img.shields.io/badge/status-🚧%20in%20development-yellow.svg)]()
 
@@ -80,7 +80,7 @@ cp .env.example .env
 
 # 5. Запустите тесты
 pytest
-# Ожидаемый результат: 541 passed (100%)
+# Ожидаемый результат: 590 passed (100%)
 ```
 
 ---
@@ -280,8 +280,8 @@ json-scenario-generator/
 
 | Метрика | Значение |
 |---------|----------|
-| Unit-тестов задекларировано | 541+ |
-| Unit-тестов проходит | **541** |
+| Unit-тестов задекларировано | 590+ |
+| Unit-тестов проходит | **590** |
 | Pass rate | 100% ✅ |
 | Покрытие (этапы 0–2.5) | 100% |
 | Покрытие (SpEL) | 100% (AST ✅, Parser ✅, Evaluator ✅, Functions ✅, Validator ✅) |
@@ -289,7 +289,7 @@ json-scenario-generator/
 ### Запуск тестов
 
 ```bash
-pytest                          # Все тесты (541 passed)
+pytest                          # Все тесты (590 passed)
 pytest -v                       # Подробный вывод
 pytest --cov=src                # С покрытием
 pytest tests/unit/ -v           # Только unit-тесты
@@ -308,7 +308,7 @@ pytest tests/unit/core/test_conditional_validator.py -v  # ConditionalValidator 
 | 3.1 | SpelAST, SpelParser | 20 | ✅ |
 | 3.2 | ConditionEvaluator | 38 | ✅ |
 | 3.3 | ConditionalValidator | 36 | ✅ |
-| **Итого** | | **541 passed** | ✅ |
+| **Итого** | | **590 passed** | ✅ |
 
 ---
 
@@ -362,6 +362,7 @@ pytest tests/unit/core/test_conditional_validator.py -v  # ConditionalValidator 
 ✅ Этап 7: JsonActualizer                       100%
 ✅ Этап 8: JsonValidator                       100%
 ✅ DictionaryLoader v2 (Registry + JSON)        100%
+✅ TD-10.1: Минимальные фикстуры v070/v072      100%
 🟡 Этап 9: CLI интеграция                      0%    ← ТЕКУЩИЙ ФОКУС
 ```
 
@@ -380,7 +381,7 @@ pytest tests/unit/core/test_conditional_validator.py -v  # ConditionalValidator 
 | DictionaryLoader v2 | `src/loaders/dictionary_registry.py`, `json_dictionary_loader.py` | 🔴 P0 | ✅ 57 тестов, Registry+JSON |
 | CLI `actualize` | `src/cli/` | 🟡 P1 | 🔴 Ожидает |
 
-> **Итого:** ~92% готовности MVP
+> **Итого:** ~93% готовности MVP
 
 ### Будущие версии
 
@@ -398,11 +399,11 @@ pytest tests/unit/core/test_conditional_validator.py -v  # ConditionalValidator 
 |---|----------|-------------|--------|
 | 1 | `json_utils.py` использует Draft7Validator вместо Draft201909Validator | 🟡 Средняя | ✅ Исправлено (11.05.2026) |
 | 2 | Нет интеграционных тестов (только unit-тесты) | 🟡 Средняя | Добавить E2E |
-| 3 | Нет test fixtures | 🟡 Низкая | Добавить fixtures |
+| 3 | Минимальные JSON Schema фикстуры (TD-10.1) | ✅ | Завершено (2b88645) |
 | 4 | Backup файлы в репо (.backup) | ✅ Низкая | Удалены (19.05.2026) |
 | 5 | Deprecated code в src/ | 🟡 Низкая | Переместить/удалить |
 
-> ✅ **Исправлено в v0.1.0:** Broken imports, Test-AST mismatch, SpEL parser incomplete, SpelFunctions (4/34 → 34/34), ConditionEvaluator, ConditionalValidator, ValueGenerator, JsonActualizer, DictionaryLoader v2. Все 541 тест проходят.
+> ✅ **Исправлено в v0.1.0:** Broken imports, Test-AST mismatch, SpEL parser incomplete, SpelFunctions (4/34 → 34/34), ConditionEvaluator, ConditionalValidator, ValueGenerator, JsonActualizer, DictionaryLoader v2. Все 590 тестов проходят.
 
 Подробности и рекомендации — в [SPECIFICATION.md](docs/SPECIFICATION.md), Раздел 14.
 
@@ -504,7 +505,7 @@ git push origin feature/add-json-actualizer
   - ConditionEvaluator — выполнение AST, все операторы, 38 тестов ✅
   - ConditionalValidator — валидация УО полей, 36 тестов ✅
 
-**Всего тестов:** 541 passed (100%)
+**Всего тестов:** 590 passed (100%)
 
 ### 🔧 Исправлено
 - **TD-8:** `json_utils.py` — заменён `Draft7Validator` на `Draft201909Validator`
@@ -524,5 +525,5 @@ git push origin feature/add-json-actualizer
 ---
 
 <p align="center">
-  <sub>Последнее обновление: 26 мая 2026 · Версия: 0.1.0-dev · Статус: ✅ DictionaryLoader v2 завершён (~92% MVP)</sub>
+  <sub>Последнее обновление: 29 мая 2026 · Версия: 0.1.0-dev · Статус: ✅ TD-10.1 завершён (~93% MVP)</sub>
 </p>

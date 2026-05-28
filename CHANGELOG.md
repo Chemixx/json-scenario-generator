@@ -7,6 +7,20 @@
 
 ---
 
+## [Unreleased] - 2026-05-29
+
+### Added
+- **TD-10.1**: Minimal JSON Schema fixtures v070 and v072 (`2b88645`)
+  - `v070_minimal.json`: 26 leaf fields covering all types (О/УО/Н), constraints, formats, dictionaries, SpEL conditions, nested objects/arrays
+  - `v072_minimal.json`: diff from v070 (3 added, 1 removed, 2 modified, 1 rename)
+  - `test_fixture_parsing.py`: 49 tests verifying SchemaParser, SchemaComparator diff, and SpEL conditions
+  - Removed obsolete `V070Call1Rq.json` and `V072Call1Rq.json` fixtures
+
+### Changed
+- **590 tests pass** (was 541)
+
+---
+
 ## [Unreleased] - 2026-05-26
 
 ### Added
@@ -215,7 +229,7 @@
 | TD-7 | Устаревшие ссылки в документации | 🟠 Высокая | ✅ Исправлено (08.05.2026) |
 | TD-8 | `src/utils/json_utils.py` использует `Draft7Validator` вместо `Draft201909Validator` | 🟡 Средняя | ✅ Исправлено (11.05.2026) |
 | TD-9 | Нет интеграционных тестов (только unit-тесты) | 🟡 Средняя | Добавить E2E |
-| TD-10 | Нет test fixtures | 🟡 Низкая | Добавить fixtures |
+| TD-10.1 | Минимальные JSON Schema фикстуры | ✅ | Завершено (2b88645) |
 | TD-11 | Backup files в репо (.backup) | ✅ Низкая | Удалены (19.05.2026) |
 | TD-12 | Deprecated code в src/ | 🟡 Низкая | Переместить/удалить |
 
@@ -312,5 +326,5 @@
 ---
 
 <p align="center">
-  <sub>Последнее обновление: 26 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 DictionaryLoader v2 завершён (~92% MVP)</sub>
+  <sub>Последнее обновление: 29 мая 2026 · Версия: 0.1.0-dev · Статус: 🚧 TD-10.1 завершён (~93% MVP)</sub>
 </p>
